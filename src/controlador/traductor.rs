@@ -1,8 +1,10 @@
-use serde::{Deserialize, Serialize};
+use super::protocolo::Mensaje;
 
-fn serializa() {
+pub fn serializa(mensaje: &Mensaje) -> Result<String, serde_json::Error> {
+    serde_json::to_string(mensaje)
 
 }
 
-fn deserializa() {
+pub fn deserializa(json: &str) -> Result<Mensaje, serde_json::Error> {
+    serde_json::from_str(json)
 }
