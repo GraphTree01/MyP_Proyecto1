@@ -31,7 +31,7 @@ fn main() {
         .nth(1)
         .unwrap_or("1234".to_string());
 
-    let direccion = format!("127.0.0.1:{}", puerto);
+    let direccion = format!("0.0.0.0:{}", puerto);
 
     let servidor = Servidor::new(&direccion);
     let listener = servidor.iniciar()
