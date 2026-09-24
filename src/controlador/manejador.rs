@@ -1,4 +1,4 @@
-use std::io::{BufRead, BufReader, Write, Error};
+use std::io::{BufRead, BufReader, Error, Write};
 use std::net::TcpStream;
 
 use crate::controlador::protocolo::{Mensaje, Operation, Resultado};
@@ -16,19 +16,15 @@ impl Manejador {
     }
 
     pub fn enviar(&mut self, mensaje: &Mensaje) -> Result<(), Error> {
-        
         let mut json = traductor::serializa(mensaje)?;
         json.push('\n');
 
-        self.reader
-            .get_mut()
-            .write_all(json.as_bytes())?;
+        self.reader.get_mut().write_all(json.as_bytes())?;
 
         Ok(())
     }
 
     pub fn leer(&mut self) -> Result<Mensaje, Error> {
-      
         let mut mensaje = String::new();
 
         self.reader.read_line(&mut mensaje)?;
@@ -38,31 +34,24 @@ impl Manejador {
         let mensaje = traductor::deserializa(&mensaje)?;
 
         Ok(mensaje)
-
     }
 
     fn nombre_valido(username: &str) -> bool {
-
         !username.is_empty() && username.chars().count() <= 8
-    } 
+    }
 
     pub fn verificar(&mut self) -> Result<bool, Error> {
-        
         let mensaje = self.leer()?;
 
-         match mensaje {
-
+        match mensaje {
             Mensaje::Identify { username } => {
-
                 if !Self::nombre_valido(&username) {
-
                     let respuesta = Mensaje::Response {
-
                         operation: Operation::Identify,
                         result: Resultado::NotIdentified,
                         extra: None,
                     };
-                    
+
                     self.enviar(&respuesta)?;
 
                     return Ok(false);
@@ -71,17 +60,15 @@ impl Manejador {
                 let respuesta = Mensaje::Response {
                     operation: Operation::Identify,
                     result: Resultado::Success,
-                    extra: Some(String::from(username)),
+                    extra: Some(username),
                 };
 
                 self.enviar(&respuesta)?;
 
                 Ok(true)
-
             }
 
             _ => {
-
                 let respuesta = Mensaje::Response {
                     operation: Operation::Invalid,
                     result: Resultado::NotIdentified,
@@ -91,7 +78,6 @@ impl Manejador {
                 self.enviar(&respuesta)?;
 
                 Ok(false)
-
             }
         }
     }

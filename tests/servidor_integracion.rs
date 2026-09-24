@@ -31,6 +31,8 @@ fn iniciar_servidor() -> (Child, u16) {
         thread::sleep(Duration::from_millis(50));
     }
 
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
     panic!("El servidor no inició a tiempo");
 }
 
@@ -43,9 +45,7 @@ fn enviar_mensaje(puerto: u16, mensaje: &Mensaje) -> Mensaje {
     stream.write_all(json.as_bytes()).unwrap();
 
     let mut respuesta = String::new();
-    BufReader::new(stream)
-        .read_line(&mut respuesta)
-        .unwrap();
+    BufReader::new(stream).read_line(&mut respuesta).unwrap();
 
     traductor::deserializa(&respuesta).unwrap()
 }
@@ -119,9 +119,7 @@ fn rechaza_mensaje_que_no_es_identify() {
 
     match respuesta {
         Mensaje::Response {
-            operation,
-            result,
-            ..
+            operation, result, ..
         } => {
             assert!(matches!(operation, Operation::Invalid));
             assert!(matches!(result, Resultado::NotIdentified));

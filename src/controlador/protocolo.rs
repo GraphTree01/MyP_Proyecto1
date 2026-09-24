@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type")]
 pub enum Mensaje {
     #[serde(rename = "IDENTIFY")]
-    Identify {
-        username: String,
-    },
-
+    Identify { username: String },
 
     #[serde(rename = "RESPONSE")]
     Response {
@@ -16,18 +13,16 @@ pub enum Mensaje {
         #[serde(skip_serializing_if = "Option::is_none")]
         extra: Option<String>,
     },
-    
+
     #[serde(rename = "NEW_USER")]
-    NewUser {
-        username: String,
-    },
+    NewUser { username: String },
 }
 
 #[derive(Serialize, Deserialize)]
 pub enum Operation {
     #[serde(rename = "IDENTIFY")]
     Identify,
-    #[serde(rename ="INVALID")]
+    #[serde(rename = "INVALID")]
     Invalid,
 }
 
@@ -37,9 +32,9 @@ pub enum Resultado {
     Success,
     #[serde(rename = "USER_ALREADY_EXIST")]
     UserAlreadyExist,
-    #[serde(rename ="NOT_IDENTIFIED")]
+    #[serde(rename = "NOT_IDENTIFIED")]
     NotIdentified,
-    #[serde(rename ="INVALID")]
+    #[serde(rename = "INVALID")]
     Invalid,
 }
 
@@ -55,10 +50,7 @@ mod tests {
 
         let json = serde_json::to_string(&mensaje).unwrap();
 
-        assert_eq!(
-            json,
-            r#"{"type":"IDENTIFY","username":"Kimberly"}"#
-            );
+        assert_eq!(json, r#"{"type":"IDENTIFY","username":"Kimberly"}"#);
     }
 
     #[test]
@@ -74,7 +66,7 @@ mod tests {
         assert_eq!(
             json,
             r#"{"type":"RESPONSE","operation":"IDENTIFY","result":"SUCCESS","extra":"Kimberly"}"#
-            );
+        );
     }
 
     #[test]
@@ -90,7 +82,6 @@ mod tests {
         assert_eq!(
             json,
             r#"{"type":"RESPONSE","operation":"IDENTIFY","result":"USER_ALREADY_EXIST","extra":"Kimberly"}"#
-            );
+        );
     }
-
 }
