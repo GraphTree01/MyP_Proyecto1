@@ -1,0 +1,27 @@
+name: Rust CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Verificar formato
+        run: cargo fmt --all -- --check
+
+      - name: Ejecutar pruebas
+        run: cargo test --all-targets -- --test-threads=1
+
+      - name: Ejecutar Clippy
+        run: cargo clippy --all-targets -- -D warnings
