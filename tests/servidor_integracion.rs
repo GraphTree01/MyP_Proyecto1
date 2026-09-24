@@ -16,7 +16,7 @@ fn iniciar_servidor() -> (Child, u16) {
     let puerto = listener.local_addr().unwrap().port();
     drop(listener);
 
-    let servidor = Command::new(env!("CARGO_BIN_EXE_servidor"))
+    let mut servidor = Command::new(env!("CARGO_BIN_EXE_servidor"))
         .arg(puerto.to_string())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
