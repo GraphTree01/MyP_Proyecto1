@@ -107,6 +107,36 @@ fn rechaza_cliente_con_nombre_invalido() {
 }
 
 #[test]
+fn rechaza_nombre_ya_registrado() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mensaje = Mensaje::Identify {
+        username: "Kimberly".to_string(),
+    };
+
+    let primera_respuesta = enviar_mensaje(puerto, &mensaje);
+    assert!(matches!(
+        primera_respuesta,
+        Mensaje::Response {
+            result: Resultado::Success,
+            ..
+        }
+    ));
+
+    let segunda_respuesta = enviar_mensaje(puerto, &mensaje);
+    assert!(matches!(
+        segunda_respuesta,
+        Mensaje::Response {
+            operation: Operation::Identify,
+            result: Resultado::UserAlreadyExist,
+            extra: Some(_),
+        }
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
 fn rechaza_mensaje_que_no_es_identify() {
     let (mut servidor, puerto) = iniciar_servidor();
 

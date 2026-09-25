@@ -1,18 +1,23 @@
+use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::net::TcpListener;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use proyecto1::controlador::manejador::Manejador;
+use proyecto1::controlador::usuario::Usuario;
 
 struct Servidor {
     direccion: String,
+    usuarios: Arc<Mutex<HashMap<String, Usuario>>>,
 }
 
 impl Servidor {
     fn new(direccion: &str) -> Self {
         Self {
             direccion: direccion.to_string(),
+            usuarios: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -34,9 +39,10 @@ fn main() {
 
     for stream in listener.incoming() {
         let stream = stream.expect("No se pudo aceptar la conexión");
+        let usuarios = Arc::clone(&servidor.usuarios);
 
         thread::spawn(move || {
-            let mut manejador = Manejador::nuevo(stream);
+            let mut manejador = Manejador::nuevo(stream, usuarios);
 
             match manejador.verificar() {
                 Ok(true) => {

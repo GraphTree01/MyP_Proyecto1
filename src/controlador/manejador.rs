@@ -1,17 +1,25 @@
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::io::{BufRead, BufReader, Error, Write};
 use std::net::TcpStream;
+use std::sync::{Arc, Mutex};
 
 use crate::controlador::protocolo::{Mensaje, Operation, Resultado};
 use crate::controlador::traductor;
+use crate::controlador::usuario::Usuario;
+
+pub type Usuarios = Arc<Mutex<HashMap<String, Usuario>>>;
 
 pub struct Manejador {
     reader: BufReader<TcpStream>,
+    usuarios: Usuarios,
 }
 
 impl Manejador {
-    pub fn nuevo(stream: TcpStream) -> Self {
+    pub fn nuevo(stream: TcpStream, usuarios: Usuarios) -> Self {
         Self {
             reader: BufReader::new(stream),
+            usuarios,
         }
     }
 
@@ -56,6 +64,33 @@ impl Manejador {
 
                     return Ok(false);
                 }
+
+                let mut usuarios = self
+                    .usuarios
+                    .lock()
+                    .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
+
+                if let Entry::Occupied(_) = usuarios.entry(username.clone()) {
+                    drop(usuarios);
+
+                    let respuesta = Mensaje::Response {
+                        operation: Operation::Identify,
+                        result: Resultado::UserAlreadyExist,
+                        extra: Some(username),
+                    };
+
+                    self.enviar(&respuesta)?;
+
+                    return Ok(false);
+                }
+
+                usuarios.insert(
+                    username.clone(),
+                    Usuario {
+                        nombre: username.clone(),
+                    },
+                );
+                drop(usuarios);
 
                 let respuesta = Mensaje::Response {
                     operation: Operation::Identify,
