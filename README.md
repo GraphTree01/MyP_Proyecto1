@@ -2,9 +2,101 @@
 
 Un chat grupal con diferentes funcionalidades.
 
-### Pasos para construir y ejecutar la imagen.
+## Requisitos
+
+- Rust y Cargo.
+- Docker, opcionalmente, para ejecutar el proyecto dentro de un contenedor.
+
+## Ejecutar con Cargo
+
+Primero inicia el servidor en una terminal:
+
+```bash
+cargo run --bin servidor -- 1234
+```
+
+El puerto es opcional. Si no se indica, el servidor usa el puerto `1234`:
+
+```bash
+cargo run --bin servidor
+```
+
+Después inicia uno o más clientes en otras terminales:
+
+```bash
+cargo run --bin cliente -- 127.0.0.1 1234
+```
+Si se ejecuta el servidor en una computadora y un cliente en otra bajo una red local, la dirección IP tiene que ser la que ejecuta al servidor. Esta se da automáticamente por el proveedor de internet. Aquí tanto IP y puerto son campos necesarios al ejecutar un cliente.
+
+El cliente solicitará un nombre. Cada nombre debe ser único entre los clientes conectados y tener máximo 8 caracteres.
+
+## Comandos del cliente
+
+### Enviar texto público
+
+```text
+\publicText Hola a todos
+```
+
+El salto de línea termina el comando. El mensaje se envía a los demás clientes conectados.
+
+Las líneas vacías se ignoran y los comandos desconocidos se informan en la terminal.
+
+## Mensajes visibles
+
+Cuando se conecta un usuario, los demás clientes ven:
+
+```text
+NEW_USER: "nombre"
+```
+
+Cuando se desconecta un usuario:
+
+```text
+DISCONNECT: "nombre"
+```
+
+Cuando llega un mensaje público:
+
+```text
+nombre: Hola a todos
+```
+
+El protocolo interno utiliza JSON entre el cliente y el servidor, pero el cliente muestra estos mensajes en un formato legible.
+
+## Ejecutar las pruebas
+
+```bash
+cargo test
+```
+
+Para comprobar el formato del código:
+
+```bash
+cargo fmt -- --check
+```
+
+## Ejecutar con Docker
+
+Construye la imagen:
 
 ```bash
 docker build -t proyecto1 .
-docker run --rm proyecto1
+```
+
+Inicia el servidor dentro del contenedor:
+
+```bash
+docker run --rm -p 1234:1234 proyecto1
+```
+
+Para indicar otro puerto, por ejemplo `4321`:
+
+```bash
+docker run --rm -p 4321:4321 proyecto1 ./servidor 4321
+```
+Después ejecuta los clientes con Cargo desde otras terminales:
+
+```bash
+cargo run --bin cliente -- 127.0.0.1 1234
 ```

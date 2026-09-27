@@ -12,6 +12,8 @@ FROM debian:bookworm-slim
 
 WORKDIR /app
 
-COPY --from=builder /app/target/release/proyecto1 .
+COPY --from=builder /app/target/release/servidor .
 
-CMD ["./proyecto1"]
+EXPOSE 1234
+
+CMD ["./servidor"]
