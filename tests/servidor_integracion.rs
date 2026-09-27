@@ -50,6 +50,30 @@ fn enviar_mensaje(puerto: u16, mensaje: &Mensaje) -> Mensaje {
     traductor::deserializa(&respuesta).unwrap()
 }
 
+fn conectar_cliente_identificado(puerto: u16, nombre: &str) -> TcpStream {
+    let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
+    let mensaje = Mensaje::Identify {
+        username: nombre.to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    stream.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(stream.try_clone().unwrap())
+        .read_line(&mut respuesta)
+        .unwrap();
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::Response {
+            result: Resultado::Success,
+            ..
+        }
+    ));
+
+    stream
+}
+
 #[test]
 fn identifica_cliente_con_nombre_valido() {
     let (mut servidor, puerto) = iniciar_servidor();
@@ -109,20 +133,14 @@ fn rechaza_cliente_con_nombre_invalido() {
 #[test]
 fn rechaza_nombre_ya_registrado() {
     let (mut servidor, puerto) = iniciar_servidor();
-    let mensaje = Mensaje::Identify {
-        username: "Kimberly".to_string(),
-    };
+    let _primer_cliente = conectar_cliente_identificado(puerto, "Kimberly");
 
-    let primera_respuesta = enviar_mensaje(puerto, &mensaje);
-    assert!(matches!(
-        primera_respuesta,
-        Mensaje::Response {
-            result: Resultado::Success,
-            ..
-        }
-    ));
-
-    let segunda_respuesta = enviar_mensaje(puerto, &mensaje);
+    let segunda_respuesta = enviar_mensaje(
+        puerto,
+        &Mensaje::Identify {
+            username: "Kimberly".to_string(),
+        },
+    );
     assert!(matches!(
         segunda_respuesta,
         Mensaje::Response {
@@ -130,6 +148,34 @@ fn rechaza_nombre_ya_registrado() {
             result: Resultado::UserAlreadyExist,
             extra: Some(_),
         }
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn difunde_texto_publico_a_los_demas_clientes() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
+    let mut receptor = conectar_cliente_identificado(puerto, "Receptor");
+
+    let mensaje = Mensaje::PublicText {
+        text: "Hola a todos".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    emisor.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut receptor)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::PublicTextFrom { username, text }
+            if username == "Emisor" && text == "Hola a todos"
     ));
 
     servidor.kill().unwrap();

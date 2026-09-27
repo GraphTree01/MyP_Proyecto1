@@ -28,17 +28,29 @@ impl Servidor {
 }
 
 fn main() {
-    let puerto = env::args().nth(1).unwrap_or("1234".to_string());
+    if let Err(error) = ejecutar() {
+        eprintln!("Error del servidor: {}", error);
+    }
+}
+
+fn ejecutar() -> Result<(), Box<dyn Error>> {
+    let puerto = env::args().nth(1).unwrap_or_else(|| "1234".to_string());
 
     let direccion = format!("0.0.0.0:{}", puerto);
 
     let servidor = Servidor::new(&direccion);
-    let listener = servidor.iniciar().expect("No se pudo iniciar el servidor");
+    let listener = servidor.iniciar()?;
 
     println!("Servidor escuchando en {}", servidor.direccion);
 
     for stream in listener.incoming() {
-        let stream = stream.expect("No se pudo aceptar la conexión");
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(error) => {
+                eprintln!("No se pudo aceptar una conexión: {}", error);
+                continue;
+            }
+        };
         let usuarios = Arc::clone(&servidor.usuarios);
 
         thread::spawn(move || {
@@ -46,7 +58,9 @@ fn main() {
 
             match manejador.verificar() {
                 Ok(true) => {
-                    Manejador::atender();
+                    if let Err(e) = manejador.atender() {
+                        eprintln!("Error atendiendo al cliente: {}", e);
+                    }
                 }
 
                 Ok(false) => {}
@@ -57,4 +71,6 @@ fn main() {
             }
         });
     }
+
+    Ok(())
 }

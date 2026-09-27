@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum Mensaje {
     #[serde(rename = "IDENTIFY")]
@@ -16,9 +16,18 @@ pub enum Mensaje {
 
     #[serde(rename = "NEW_USER")]
     NewUser { username: String },
+
+    #[serde(rename = "PUBLIC_TEXT")]
+    PublicText { text: String },
+
+    #[serde(rename = "PUBLIC_TEXT_FROM")]
+    PublicTextFrom { username: String, text: String },
+
+    #[serde(rename = "DISCONNECTED")]
+    Disconnected { username: String },
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Operation {
     #[serde(rename = "IDENTIFY")]
     Identify,
@@ -26,7 +35,7 @@ pub enum Operation {
     Invalid,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Resultado {
     #[serde(rename = "SUCCESS")]
     Success,
