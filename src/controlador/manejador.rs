@@ -1,3 +1,5 @@
+//! Gestión de una conexión cliente dentro del servidor.
+
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
@@ -8,8 +10,10 @@ use crate::controlador::protocolo::{Mensaje, Operation, Resultado};
 use crate::controlador::traductor;
 use crate::controlador::usuario::Usuario;
 
+/// Diccionario de usuarios compartido por los hilos del servidor.
 pub type Usuarios = Arc<Mutex<HashMap<String, Usuario>>>;
 
+/// Lee, valida y atiende una conexión TCP autenticada.
 pub struct Manejador {
     reader: BufReader<TcpStream>,
     usuarios: Usuarios,
@@ -17,6 +21,7 @@ pub struct Manejador {
 }
 
 impl Manejador {
+    /// Crea un manejador asociado al stream y al registro global de usuarios.
     pub fn nuevo(stream: TcpStream, usuarios: Usuarios) -> Self {
         Self {
             reader: BufReader::new(stream),
@@ -25,6 +30,7 @@ impl Manejador {
         }
     }
 
+    /// Serializa y envía un mensaje a este cliente.
     pub fn enviar(&mut self, mensaje: &Mensaje) -> Result<(), Error> {
         let mut json = traductor::serializa(mensaje)?;
         json.push('\n');
@@ -34,6 +40,7 @@ impl Manejador {
         Ok(())
     }
 
+    /// Lee mensajes no vacíos, registra su JSON en el servidor y lo deserializa.
     pub fn leer(&mut self) -> Result<Mensaje, Error> {
         loop {
             let mut mensaje = String::new();
@@ -54,10 +61,12 @@ impl Manejador {
         }
     }
 
+    /// Comprueba las reglas actuales para un nombre de usuario.
     fn nombre_valido(username: &str) -> bool {
         !username.is_empty() && username.chars().count() <= 8
     }
 
+    /// Procesa el primer mensaje e incorpora al cliente si su nombre es válido y único.
     pub fn verificar(&mut self) -> Result<bool, Error> {
         let mensaje = self.leer()?;
 
@@ -133,6 +142,7 @@ impl Manejador {
         }
     }
 
+    /// Atiende mensajes hasta la desconexión y libera el nombre del usuario.
     pub fn atender(&mut self) -> Result<(), Error> {
         let resultado = loop {
             let mensaje = match self.leer() {
@@ -177,6 +187,10 @@ impl Manejador {
         resultado
     }
 
+    /// Envía un mensaje a todos los usuarios excepto a la conexión actual.
+    ///
+    /// El registro se bloquea solo para clonar los streams; las escrituras se
+    /// realizan después de liberar el `Mutex` para no detener a otros hilos.
     fn difundir(&self, mensaje: &Mensaje) -> Result<(), Error> {
         let json = traductor::serializa(mensaje)? + "\n";
         println!("{}", json.trim_end());

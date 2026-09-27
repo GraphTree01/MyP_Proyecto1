@@ -1,3 +1,5 @@
+//! Ejecutable interactivo del cliente.
+
 use std::env;
 use std::io;
 use std::net::Ipv4Addr;
@@ -10,6 +12,7 @@ fn main() {
     }
 }
 
+/// Ejecuta el flujo de conexión, identificación y lectura de comandos.
 fn ejecutar() -> Result<(), Box<dyn std::error::Error>> {
     let argumentos: Vec<String> = env::args().collect();
 

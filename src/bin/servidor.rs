@@ -1,3 +1,5 @@
+//! Ejecutable del servidor TCP del chat.
+
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
@@ -8,12 +10,14 @@ use std::thread;
 use proyecto1::controlador::manejador::Manejador;
 use proyecto1::controlador::usuario::Usuario;
 
+/// Estado principal del servidor y registro compartido de usuarios.
 struct Servidor {
     direccion: String,
     usuarios: Arc<Mutex<HashMap<String, Usuario>>>,
 }
 
 impl Servidor {
+    /// Crea un servidor sin usuarios conectados.
     fn new(direccion: &str) -> Self {
         Self {
             direccion: direccion.to_string(),
@@ -21,6 +25,7 @@ impl Servidor {
         }
     }
 
+    /// Reserva la dirección TCP en la que aceptará conexiones.
     fn iniciar(&self) -> Result<TcpListener, Box<dyn Error>> {
         let listener = TcpListener::bind(&self.direccion)?;
         Ok(listener)
@@ -33,6 +38,7 @@ fn main() {
     }
 }
 
+/// Ejecuta el ciclo que acepta y delega conexiones a hilos independientes.
 fn ejecutar() -> Result<(), Box<dyn Error>> {
     let puerto = env::args().nth(1).unwrap_or_else(|| "1234".to_string());
 

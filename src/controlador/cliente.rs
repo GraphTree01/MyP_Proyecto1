@@ -1,3 +1,5 @@
+//! Cliente de la aplicación y traducción de comandos de consola.
+
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use std::thread;
@@ -5,6 +7,7 @@ use std::thread;
 use crate::controlador::protocolo::Mensaje;
 use crate::controlador::traductor;
 
+/// Estado de una conexión cliente con el servidor.
 pub struct Cliente {
     servidor: SocketAddrV4,
     nombre: Option<String>,
@@ -12,6 +15,7 @@ pub struct Cliente {
 }
 
 impl Cliente {
+    /// Crea un cliente apuntando a una dirección IPv4 y un puerto.
     pub fn nuevo(ip: Ipv4Addr, puerto: u16) -> Self {
         Self {
             servidor: SocketAddrV4::new(ip, puerto),
@@ -20,6 +24,7 @@ impl Cliente {
         }
     }
 
+    /// Abre la conexión TCP con el servidor.
     pub fn conectar(&mut self) -> Result<(), Error> {
         let stream = TcpStream::connect(self.servidor)?;
         self.stream = Some(stream);
@@ -27,6 +32,7 @@ impl Cliente {
         Ok(())
     }
 
+    /// Envía la solicitud de identificación y guarda el nombre localmente.
     pub fn identificar(&mut self, username: String) -> Result<(), Error> {
         let mensaje = Mensaje::Identify {
             username: username.clone(),
@@ -39,6 +45,7 @@ impl Cliente {
         Ok(())
     }
 
+    /// Serializa y envía un mensaje, agregando el salto de línea del protocolo.
     pub fn enviar(&mut self, mensaje: &Mensaje) -> Result<(), Error> {
         let mut json = traductor::serializa(mensaje)?;
         json.push('\n');
@@ -54,6 +61,10 @@ impl Cliente {
         }
     }
 
+    /// Interpreta un comando de consola y lo convierte en un mensaje del protocolo.
+    ///
+    /// Actualmente reconoce `\\publicText texto`. Devuelve `true` cuando la
+    /// línea fue procesada, incluso si era una línea vacía; se ignora.
     pub fn procesar_comando(&mut self, comando: &str) -> Result<bool, Error> {
         let comando = comando.trim();
         if comando.is_empty() {
@@ -75,6 +86,7 @@ impl Cliente {
         Ok(true)
     }
 
+    /// Inicia un hilo que recibe y muestra mensajes del servidor.
     pub fn iniciar_escucha(&self) -> Result<(), Error> {
         let stream = self
             .stream
