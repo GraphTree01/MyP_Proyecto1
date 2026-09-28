@@ -6,7 +6,7 @@ use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
 
-use crate::controlador::protocolo::{Mensaje, Operation, Resultado};
+use crate::controlador::protocolo::{Mensaje, Operation, Resultado, Status};
 use crate::controlador::traductor;
 use crate::controlador::usuario::Usuario;
 
@@ -108,6 +108,7 @@ impl Manejador {
                     Usuario {
                         nombre: username.clone(),
                         stream: self.reader.get_ref().try_clone()?,
+                        status: Status::Active,
                     },
                 );
                 drop(usuarios);
@@ -166,6 +167,25 @@ impl Manejador {
                 };
 
                 self.difundir(&mensaje)?;
+            } else if let Mensaje::Status { status } = mensaje {
+                let username = self
+                    .nombre
+                    .as_ref()
+                    .ok_or_else(|| Error::other("El cliente no está identificado"))?;
+
+                let mut usuarios = self
+                    .usuarios
+                    .lock()
+                    .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
+                if let Some(usuario) = usuarios.get_mut(username) {
+                    usuario.status = status;
+                }
+                drop(usuarios);
+
+                self.difundir(&Mensaje::NewStatus {
+                    username: username.clone(),
+                    status,
+                })?;
             }
         };
 

@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use std::thread;
 
-use crate::controlador::protocolo::Mensaje;
+use crate::controlador::protocolo::{Mensaje, Status};
 use crate::controlador::traductor;
 
 /// Estado de una conexión cliente con el servidor.
@@ -76,7 +76,16 @@ impl Cliente {
         };
 
         if nombre != r"\publicText" || text.trim().is_empty() {
-            return Ok(false);
+            if nombre != r"\newStatus" {
+                return Ok(false);
+            }
+
+            let Ok(status) = text.trim().parse::<Status>() else {
+                return Ok(false);
+            };
+
+            self.enviar(&Mensaje::Status { status })?;
+            return Ok(true);
         }
 
         self.enviar(&Mensaje::PublicText {
@@ -121,6 +130,9 @@ impl Cliente {
                         }
                         Mensaje::PublicTextFrom { username, text } => {
                             println!("{}: {}", username, text);
+                        }
+                        Mensaje::NewStatus { username, status } => {
+                            println!("STATUS: \"{}\" -> {}", username, status);
                         }
                         Mensaje::Response { result, .. } => {
                             println!("Respuesta del servidor: {:?}", result);

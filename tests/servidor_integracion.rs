@@ -7,7 +7,7 @@ use std::{
 };
 
 use proyecto1::controlador::{
-    protocolo::{Mensaje, Operation, Resultado},
+    protocolo::{Mensaje, Operation, Resultado, Status},
     traductor,
 };
 
@@ -202,6 +202,43 @@ fn rechaza_mensaje_que_no_es_identify() {
         }
         _ => panic!("Respuesta inesperada"),
     }
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn difunde_cambio_de_status_a_los_demas_clientes() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
+    let mut receptor = conectar_cliente_identificado(puerto, "Receptor");
+
+    let mut notificacion = String::new();
+    BufReader::new(&mut emisor)
+        .read_line(&mut notificacion)
+        .unwrap();
+    assert!(matches!(
+        traductor::deserializa(&notificacion).unwrap(),
+        Mensaje::NewUser { username } if username == "Receptor"
+    ));
+
+    let mensaje = Mensaje::Status {
+        status: Status::Away,
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    receptor.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut emisor)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::NewStatus { username, status }
+            if username == "Receptor" && matches!(status, Status::Away)
+    ));
 
     servidor.kill().unwrap();
     servidor.wait().unwrap();

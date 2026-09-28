@@ -42,6 +42,20 @@ El salto de línea termina el comando. El mensaje se envía a los demás cliente
 
 Las líneas vacías se ignoran y los comandos desconocidos se informan en la terminal.
 
+### Cambiar estado
+
+```text
+\newStatus ACTIVE
+\newStatus AWAY
+\newStatus BUSY
+```
+
+Todos los usuarios comienzan con estado `ACTIVE`. Al cambiarlo, los demás clientes reciben:
+
+```text
+STATUS: "nombre" -> AWAY
+```
+
 ## Mensajes visibles
 
 Cuando se conecta un usuario, los demás clientes ven:
@@ -60,6 +74,12 @@ Cuando llega un mensaje público:
 
 ```text
 nombre: Hola a todos
+```
+
+Cuando cambia el estado de un usuario:
+
+```text
+STATUS: "nombre" -> ACTIVE
 ```
 
 El protocolo interno utiliza JSON entre el cliente y el servidor, pero el cliente muestra estos mensajes en un formato legible.

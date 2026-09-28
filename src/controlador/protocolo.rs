@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// Mensajes intercambiados entre clientes y servidor.
 ///
@@ -24,6 +25,12 @@ pub enum Mensaje {
     #[serde(rename = "NEW_USER")]
     NewUser { username: String },
 
+    #[serde(rename = "STATUS")]
+    Status { status: Status },
+
+    #[serde(rename = "NEW_STATUS")]
+    NewStatus { username: String, status: Status },
+
     /// Texto público enviado por el cliente al servidor.
     #[serde(rename = "PUBLIC_TEXT")]
     PublicText { text: String },
@@ -46,6 +53,47 @@ pub enum Operation {
     /// Se recibió una operación no válida.
     #[serde(rename = "INVALID")]
     Invalid,
+}
+
+/// Estado visible de un usuario conectado.
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum Status {
+    /// El usuario está disponible.
+    #[serde(rename = "ACTIVE")]
+    Active,
+
+    /// El usuario está temporalmente ausente.
+    #[serde(rename = "AWAY")]
+    Away,
+
+    /// El usuario está ocupado.
+    #[serde(rename = "BUSY")]
+    Busy,
+}
+
+impl FromStr for Status {
+    type Err = ();
+
+    fn from_str(status: &str) -> Result<Self, Self::Err> {
+        match status.to_ascii_uppercase().as_str() {
+            "ACTIVE" => Ok(Self::Active),
+            "AWAY" => Ok(Self::Away),
+            "BUSY" => Ok(Self::Busy),
+            _ => Err(()),
+        }
+    }
+}
+
+impl std::fmt::Display for Status {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let status = match self {
+            Self::Active => "ACTIVE",
+            Self::Away => "AWAY",
+            Self::Busy => "BUSY",
+        };
+
+        formatter.write_str(status)
+    }
 }
 
 /// Resultado de una operación del protocolo.
