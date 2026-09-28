@@ -72,6 +72,14 @@ El servidor envía el mensaje únicamente al usuario indicado. Si el destinatari
 
 El cliente solicita una desconexión ordenada y los demás usuarios reciben `DISCONNECTED`.
 
+### Consultar usuarios
+
+```text
+\users
+```
+
+El servidor responde únicamente al cliente que hizo la solicitud con la lista de usuarios conectados y sus estados.
+
 
 ## Mensajes visibles
 

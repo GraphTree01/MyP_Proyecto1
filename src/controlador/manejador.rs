@@ -155,6 +155,20 @@ impl Manejador {
 
             if let Mensaje::Disconnect = mensaje {
                 break Ok(());
+            } else if let Mensaje::Users = mensaje {
+                let users = {
+                    let usuarios = self
+                        .usuarios
+                        .lock()
+                        .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
+
+                    usuarios
+                        .values()
+                        .map(|usuario| (usuario.nombre.clone(), usuario.status))
+                        .collect()
+                };
+
+                self.enviar(&Mensaje::UserList { users })?;
             } else if let Mensaje::PublicText { text } = mensaje {
                 if text.trim().is_empty() {
                     continue;

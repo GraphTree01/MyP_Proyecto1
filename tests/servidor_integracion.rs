@@ -10,6 +10,7 @@ use proyecto1::controlador::{
     protocolo::{Mensaje, Operation, Resultado, Status},
     traductor,
 };
+use std::collections::HashMap;
 
 fn iniciar_servidor() -> (Child, u16) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
@@ -304,6 +305,40 @@ fn informa_si_no_existe_el_destinatario_privado() {
             result: Resultado::NoSuchUser,
             extra: Some(username),
         } if username == "Inexistente"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn devuelve_la_lista_de_usuarios_con_sus_estados() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
+    let _receptor = conectar_cliente_identificado(puerto, "Receptor");
+
+    let mut notificacion = String::new();
+    BufReader::new(&mut emisor)
+        .read_line(&mut notificacion)
+        .unwrap();
+
+    let mensaje = Mensaje::Users;
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    emisor.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut emisor)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    let mut esperados = HashMap::new();
+    esperados.insert("Emisor".to_string(), Status::Active);
+    esperados.insert("Receptor".to_string(), Status::Active);
+
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::UserList { users } if users == esperados
     ));
 
     servidor.kill().unwrap();

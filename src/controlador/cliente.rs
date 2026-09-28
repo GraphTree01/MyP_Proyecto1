@@ -77,6 +77,11 @@ impl Cliente {
             return Ok(true);
         }
 
+        if comando == r"\users" {
+            self.enviar(&Mensaje::Users)?;
+            return Ok(true);
+        }
+
         let Some((nombre, argumentos)) = comando.split_once(' ') else {
             return Ok(false);
         };
@@ -160,6 +165,11 @@ impl Cliente {
                         }
                         Mensaje::NewStatus { username, status } => {
                             println!("STATUS: \"{}\" -> {}", username, status);
+                        }
+                        Mensaje::UserList { users } => {
+                            for (username, status) in users {
+                                println!("{}: {}", username, status);
+                            }
                         }
                         Mensaje::Response { result, extra, .. } => {
                             if let Resultado::NoSuchUser = result {

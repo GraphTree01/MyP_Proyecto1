@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::str::FromStr;
 
 /// Mensajes intercambiados entre clientes y servidor.
@@ -56,6 +57,14 @@ pub enum Mensaje {
     /// Solicita cerrar la conexión actual sin responder al cliente.
     #[serde(rename = "DISCONNECT")]
     Disconnect,
+
+    /// Solicita la lista de usuarios en el chat.
+    #[serde(rename = "USERS")]
+    Users,
+
+    /// Respuesta del servidor al cliente que pide la lista de usuarios.
+    #[serde(rename = "USER_LIST")]
+    UserList { users: HashMap<String, Status> },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -67,14 +76,13 @@ pub enum Operation {
     /// Se recibió una operación no válida.
     #[serde(rename = "INVALID")]
     Invalid,
-
     /// Resultado si el usuario destinatario no existe.
     #[serde(rename = "TEXT")]
     Text,
 }
 
 /// Estado visible de un usuario conectado.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum Status {
     /// El usuario está disponible.
     #[serde(rename = "ACTIVE")]
