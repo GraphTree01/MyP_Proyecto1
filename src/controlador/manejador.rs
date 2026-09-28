@@ -34,6 +34,7 @@ impl Manejador {
     pub fn enviar(&mut self, mensaje: &Mensaje) -> Result<(), Error> {
         let mut json = traductor::serializa(mensaje)?;
         json.push('\n');
+        println!("{}", json.trim_end());
 
         self.reader.get_mut().write_all(json.as_bytes())?;
 
@@ -152,7 +153,9 @@ impl Manejador {
                 Err(error) => break Err(error),
             };
 
-            if let Mensaje::PublicText { text } = mensaje {
+            if let Mensaje::Disconnect = mensaje {
+                break Ok(());
+            } else if let Mensaje::PublicText { text } = mensaje {
                 if text.trim().is_empty() {
                     continue;
                 }

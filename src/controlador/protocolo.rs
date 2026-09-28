@@ -52,6 +52,10 @@ pub enum Mensaje {
     /// Notifica a los demás clientes que un usuario abandonó el chat.
     #[serde(rename = "DISCONNECTED")]
     Disconnected { username: String },
+
+    /// Solicita cerrar la conexión actual sin responder al cliente.
+    #[serde(rename = "DISCONNECT")]
+    Disconnect,
 }
 
 /// Operación a la que corresponde una respuesta del servidor.

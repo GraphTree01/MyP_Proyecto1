@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::net::{Ipv4Addr, SocketAddrV4, TcpStream};
 use std::thread;
 
-use crate::controlador::protocolo::{Mensaje, Status};
+use crate::controlador::protocolo::{Mensaje, Resultado, Status};
 use crate::controlador::traductor;
 
 /// Estado de una conexión cliente con el servidor.
@@ -69,6 +69,11 @@ impl Cliente {
     pub fn procesar_comando(&mut self, comando: &str) -> Result<bool, Error> {
         let comando = comando.trim();
         if comando.is_empty() {
+            return Ok(true);
+        }
+
+        if comando == r"\disconnect" {
+            self.enviar(&Mensaje::Disconnect)?;
             return Ok(true);
         }
 
@@ -156,8 +161,18 @@ impl Cliente {
                         Mensaje::NewStatus { username, status } => {
                             println!("STATUS: \"{}\" -> {}", username, status);
                         }
-                        Mensaje::Response { result, .. } => {
-                            println!("Respuesta del servidor: {:?}", result);
+                        Mensaje::Response { result, extra, .. } => {
+                            if let Resultado::NoSuchUser = result {
+                                if let Some(username) = extra {
+                                    println!("El usuario \"{}\" no existe.", username);
+                                } else {
+                                    println!("El usuario solicitado no existe.");
+                                }
+                            } else if let Some(extra) = extra {
+                                println!("Respuesta del servidor: {:?} ({})", result, extra);
+                            } else {
+                                println!("Respuesta del servidor: {:?}", result);
+                            }
                         }
                         _ => {}
                     },

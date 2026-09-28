@@ -64,6 +64,14 @@ STATUS: "nombre" -> AWAY
 
 El servidor envía el mensaje únicamente al usuario indicado. Si el destinatario no está conectado, el emisor recibe una respuesta indicando que no se encontró.
 
+### Desconectarse
+
+```text
+\disconnect
+```
+
+El cliente solicita una desconexión ordenada y los demás usuarios reciben `DISCONNECTED`.
+
 
 ## Mensajes visibles
 
@@ -94,7 +102,7 @@ STATUS: "nombre" -> ACTIVE/AWAY/BUSY
 Cuando llega un mensaje privado:
 
 ```text
-Mensaje privado de nombre: Hola, este mensaje es privado
+Mensaje privado de "nombre": Hola, este mensaje es privado
 ```
 
 El protocolo interno utiliza JSON entre el cliente y el servidor, pero el cliente muestra estos mensajes en un formato legible.
