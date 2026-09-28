@@ -82,6 +82,17 @@ impl Cliente {
             return Ok(true);
         }
 
+        if let Some(roomname) = comando.strip_prefix(r"\newRoom ") {
+            if roomname.trim().is_empty() {
+                return Ok(false);
+            }
+
+            self.enviar(&Mensaje::NewRoom {
+                roomname: roomname.trim().to_string(),
+            })?;
+            return Ok(true);
+        }
+
         let Some((nombre, argumentos)) = comando.split_once(' ') else {
             return Ok(false);
         };

@@ -80,6 +80,13 @@ El cliente solicita una desconexión ordenada y los demás usuarios reciben `DIS
 
 El servidor responde únicamente al cliente que hizo la solicitud con la lista de usuarios conectados y sus estados.
 
+### Crear un cuarto
+
+```text
+\newRoom Sala 1
+```
+
+El nombre del cuarto puede tener como máximo 16 caracteres. El usuario que lo crea se incorpora automáticamente como su primer miembro.
 
 ## Mensajes visibles
 

@@ -1,19 +1,18 @@
 //! Ejecutable del servidor TCP del chat.
 
-use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::net::TcpListener;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
+use proyecto1::controlador::estado::{EstadoCompartido, EstadoServidor};
 use proyecto1::controlador::manejador::Manejador;
-use proyecto1::controlador::usuario::Usuario;
 
 /// Estado principal del servidor y registro compartido de usuarios.
 struct Servidor {
     direccion: String,
-    usuarios: Arc<Mutex<HashMap<String, Usuario>>>,
+    estado: EstadoCompartido,
 }
 
 impl Servidor {
@@ -21,7 +20,7 @@ impl Servidor {
     fn new(direccion: &str) -> Self {
         Self {
             direccion: direccion.to_string(),
-            usuarios: Arc::new(Mutex::new(HashMap::new())),
+            estado: Arc::new(Mutex::new(EstadoServidor::nuevo())),
         }
     }
 
@@ -57,10 +56,10 @@ fn ejecutar() -> Result<(), Box<dyn Error>> {
                 continue;
             }
         };
-        let usuarios = Arc::clone(&servidor.usuarios);
+        let estado = Arc::clone(&servidor.estado);
 
         thread::spawn(move || {
-            let mut manejador = Manejador::nuevo(stream, usuarios);
+            let mut manejador = Manejador::nuevo(stream, estado);
 
             match manejador.verificar() {
                 Ok(true) => {

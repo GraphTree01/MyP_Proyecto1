@@ -65,6 +65,9 @@ pub enum Mensaje {
     /// Respuesta del servidor al cliente que pide la lista de usuarios.
     #[serde(rename = "USER_LIST")]
     UserList { users: HashMap<String, Status> },
+
+    #[serde(rename = "NEW_ROOM")]
+    NewRoom { roomname: String },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -79,6 +82,9 @@ pub enum Operation {
     /// Resultado si el usuario destinatario no existe.
     #[serde(rename = "TEXT")]
     Text,
+
+    #[serde(rename = "NEW_ROOM")]
+    NewRoom,
 }
 
 /// Estado visible de un usuario conectado.
@@ -140,6 +146,9 @@ pub enum Resultado {
     /// El cliente destinatario no existe.
     #[serde(rename = "NO_SUCH_USER")]
     NoSuchUser,
+
+    #[serde(rename = "ROOM_ALREADY_EXISTS")]
+    RoomAlreadyExists,
 }
 
 #[cfg(test)]

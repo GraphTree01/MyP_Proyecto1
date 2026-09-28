@@ -344,3 +344,71 @@ fn devuelve_la_lista_de_usuarios_con_sus_estados() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn crea_un_cuarto_y_agrega_al_creador() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    cliente.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut cliente)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::Response {
+            operation: Operation::NewRoom,
+            result: Resultado::Success,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_un_cuarto_con_nombre_repetido() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut primer_cliente = conectar_cliente_identificado(puerto, "Kimberly");
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    primer_cliente.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut primer_cliente)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    let mut segundo_cliente = conectar_cliente_identificado(puerto, "Luis");
+    segundo_cliente.write_all(json.as_bytes()).unwrap();
+
+    let mut segunda_respuesta = String::new();
+    BufReader::new(&mut segundo_cliente)
+        .read_line(&mut segunda_respuesta)
+        .unwrap();
+
+    assert!(matches!(
+        traductor::deserializa(&segunda_respuesta).unwrap(),
+        Mensaje::Response {
+            operation: Operation::NewRoom,
+            result: Resultado::RoomAlreadyExists,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}

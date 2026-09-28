@@ -1,31 +1,28 @@
 //! Gestión de una conexión cliente dentro del servidor.
 
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::io::{BufRead, BufReader, Error, ErrorKind, Write};
 use std::net::TcpStream;
-use std::sync::{Arc, Mutex};
 
+use crate::controlador::cuarto::Cuarto;
+use crate::controlador::estado::EstadoCompartido;
 use crate::controlador::protocolo::{Mensaje, Operation, Resultado, Status};
 use crate::controlador::traductor;
 use crate::controlador::usuario::Usuario;
 
-/// Diccionario de usuarios compartido por los hilos del servidor.
-pub type Usuarios = Arc<Mutex<HashMap<String, Usuario>>>;
-
 /// Lee, valida y atiende una conexión TCP autenticada.
 pub struct Manejador {
     reader: BufReader<TcpStream>,
-    usuarios: Usuarios,
+    estado: EstadoCompartido,
     nombre: Option<String>,
 }
 
 impl Manejador {
     /// Crea un manejador asociado al stream y al registro global de usuarios.
-    pub fn nuevo(stream: TcpStream, usuarios: Usuarios) -> Self {
+    pub fn nuevo(stream: TcpStream, estado: EstadoCompartido) -> Self {
         Self {
             reader: BufReader::new(stream),
-            usuarios,
+            estado,
             nombre: None,
         }
     }
@@ -85,13 +82,13 @@ impl Manejador {
                     return Ok(false);
                 }
 
-                let mut usuarios = self
-                    .usuarios
+                let mut estado = self
+                    .estado
                     .lock()
                     .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
 
-                if let Entry::Occupied(_) = usuarios.entry(username.clone()) {
-                    drop(usuarios);
+                if let Entry::Occupied(_) = estado.usuarios.entry(username.clone()) {
+                    drop(estado);
 
                     let respuesta = Mensaje::Response {
                         operation: Operation::Identify,
@@ -104,7 +101,7 @@ impl Manejador {
                     return Ok(false);
                 }
 
-                usuarios.insert(
+                estado.usuarios.insert(
                     username.clone(),
                     Usuario {
                         nombre: username.clone(),
@@ -112,7 +109,7 @@ impl Manejador {
                         status: Status::Active,
                     },
                 );
-                drop(usuarios);
+                drop(estado);
                 self.nombre = Some(username.clone());
 
                 self.difundir(&Mensaje::NewUser {
@@ -157,18 +154,60 @@ impl Manejador {
                 break Ok(());
             } else if let Mensaje::Users = mensaje {
                 let users = {
-                    let usuarios = self
-                        .usuarios
+                    let estado = self
+                        .estado
                         .lock()
                         .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
 
-                    usuarios
+                    estado
+                        .usuarios
                         .values()
                         .map(|usuario| (usuario.nombre.clone(), usuario.status))
                         .collect()
                 };
 
                 self.enviar(&Mensaje::UserList { users })?;
+            } else if let Mensaje::NewRoom { roomname } = mensaje {
+                let username = self
+                    .nombre
+                    .as_ref()
+                    .ok_or_else(|| Error::other("El cliente no está identificado"))?;
+
+                if !Cuarto::nombre_valido(&roomname) {
+                    self.enviar(&Mensaje::Response {
+                        operation: Operation::NewRoom,
+                        result: Resultado::Invalid,
+                        extra: Some(roomname),
+                    })?;
+                    continue;
+                }
+
+                let mut estado = self
+                    .estado
+                    .lock()
+                    .map_err(|_| Error::other("No se pudo acceder al estado del servidor"))?;
+
+                if estado.cuartos.contains_key(&roomname) {
+                    drop(estado);
+                    self.enviar(&Mensaje::Response {
+                        operation: Operation::NewRoom,
+                        result: Resultado::RoomAlreadyExists,
+                        extra: Some(roomname),
+                    })?;
+                    continue;
+                }
+
+                estado.cuartos.insert(
+                    roomname.clone(),
+                    Cuarto::nuevo(roomname.clone(), username.clone()),
+                );
+                drop(estado);
+
+                self.enviar(&Mensaje::Response {
+                    operation: Operation::NewRoom,
+                    result: Resultado::Success,
+                    extra: Some(roomname),
+                })?;
             } else if let Mensaje::PublicText { text } = mensaje {
                 if text.trim().is_empty() {
                     continue;
@@ -190,14 +229,14 @@ impl Manejador {
                     .as_ref()
                     .ok_or_else(|| Error::other("El cliente no está identificado"))?;
 
-                let mut usuarios = self
-                    .usuarios
+                let mut estado = self
+                    .estado
                     .lock()
                     .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
-                if let Some(usuario) = usuarios.get_mut(username) {
+                if let Some(usuario) = estado.usuarios.get_mut(username) {
                     usuario.status = status;
                 }
-                drop(usuarios);
+                drop(estado);
 
                 self.difundir(&Mensaje::NewStatus {
                     username: username.clone(),
@@ -209,12 +248,13 @@ impl Manejador {
                 }
 
                 let destinatario = {
-                    let usuarios = self
-                        .usuarios
+                    let estado = self
+                        .estado
                         .lock()
                         .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
 
-                    usuarios
+                    estado
+                        .usuarios
                         .get(&username)
                         .map(|usuario| (usuario.nombre.clone(), usuario.stream.try_clone()))
                 };
@@ -262,11 +302,16 @@ impl Manejador {
                 eprintln!("No se pudo notificar la desconexión: {}", error);
             }
 
-            let mut usuarios = self
-                .usuarios
+            let mut estado = self
+                .estado
                 .lock()
                 .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
-            usuarios.remove(&nombre);
+            estado.usuarios.remove(&nombre);
+            estado.cuartos.retain(|_, cuarto| {
+                cuarto.miembros.remove(&nombre);
+                cuarto.invitados.remove(&nombre);
+                !cuarto.esta_vacio()
+            });
         }
 
         resultado
@@ -281,14 +326,15 @@ impl Manejador {
         println!("{}", json.trim_end());
 
         let destinatarios = {
-            let usuarios = self
-                .usuarios
+            let estado = self
+                .estado
                 .lock()
                 .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
 
             let mut destinatarios = Vec::new();
 
-            for usuario in usuarios
+            for usuario in estado
+                .usuarios
                 .values()
                 .filter(|usuario| Some(usuario.nombre.as_str()) != self.nombre.as_deref())
             {
