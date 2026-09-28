@@ -56,6 +56,15 @@ Todos los usuarios comienzan con estado `ACTIVE`. Al cambiarlo, los demás clien
 STATUS: "nombre" -> AWAY
 ```
 
+### Enviar texto privado
+
+```text
+\privateText --to "nombre" Hola, este mensaje es privado
+```
+
+El servidor envía el mensaje únicamente al usuario indicado. Si el destinatario no está conectado, el emisor recibe una respuesta indicando que no se encontró.
+
+
 ## Mensajes visibles
 
 Cuando se conecta un usuario, los demás clientes ven:
@@ -79,7 +88,13 @@ nombre: Hola a todos
 Cuando cambia el estado de un usuario:
 
 ```text
-STATUS: "nombre" -> ACTIVE
+STATUS: "nombre" -> ACTIVE/AWAY/BUSY
+```
+
+Cuando llega un mensaje privado:
+
+```text
+Mensaje privado de nombre: Hola, este mensaje es privado
 ```
 
 El protocolo interno utiliza JSON entre el cliente y el servidor, pero el cliente muestra estos mensajes en un formato legible.

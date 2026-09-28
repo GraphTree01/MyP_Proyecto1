@@ -243,3 +243,69 @@ fn difunde_cambio_de_status_a_los_demas_clientes() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn envia_texto_privado_solo_al_destinatario() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
+    let mut receptor = conectar_cliente_identificado(puerto, "Receptor");
+
+    let mut notificacion = String::new();
+    BufReader::new(&mut emisor)
+        .read_line(&mut notificacion)
+        .unwrap();
+
+    let mensaje = Mensaje::PrivateText {
+        username: "Receptor".to_string(),
+        text: "Hola en privado".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    emisor.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut receptor)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::PrivateTextFrom { username, text }
+            if username == "Emisor" && text == "Hola en privado"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn informa_si_no_existe_el_destinatario_privado() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
+
+    let mensaje = Mensaje::PrivateText {
+        username: "Inexistente".to_string(),
+        text: "Hola".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    emisor.write_all(json.as_bytes()).unwrap();
+
+    let mut json_respuesta = String::new();
+    BufReader::new(&mut emisor)
+        .read_line(&mut json_respuesta)
+        .unwrap();
+    let respuesta = traductor::deserializa(&json_respuesta).unwrap();
+
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::Text,
+            result: Resultado::NoSuchUser,
+            extra: Some(username),
+        } if username == "Inexistente"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}

@@ -25,9 +25,11 @@ pub enum Mensaje {
     #[serde(rename = "NEW_USER")]
     NewUser { username: String },
 
+    /// Inicializa o cambia el status de los usuarios.
     #[serde(rename = "STATUS")]
     Status { status: Status },
 
+    /// Notifica que un usuario a cambiado su status.
     #[serde(rename = "NEW_STATUS")]
     NewStatus { username: String, status: Status },
 
@@ -38,6 +40,14 @@ pub enum Mensaje {
     /// Texto público que el servidor entrega a los demás clientes.
     #[serde(rename = "PUBLIC_TEXT_FROM")]
     PublicTextFrom { username: String, text: String },
+
+    /// Texto privado enviado por el cliente al servidor.
+    #[serde(rename = "TEXT")]
+    PrivateText { username: String, text: String },
+
+    /// Texto privado que el servidor entrega a un cliente específico.
+    #[serde(rename = "TEXT_FROM")]
+    PrivateTextFrom { username: String, text: String },
 
     /// Notifica a los demás clientes que un usuario abandonó el chat.
     #[serde(rename = "DISCONNECTED")]
@@ -53,6 +63,10 @@ pub enum Operation {
     /// Se recibió una operación no válida.
     #[serde(rename = "INVALID")]
     Invalid,
+
+    /// Resultado si el usuario destinatario no existe.
+    #[serde(rename = "TEXT")]
+    Text,
 }
 
 /// Estado visible de un usuario conectado.
@@ -111,6 +125,9 @@ pub enum Resultado {
     /// La operación o sus datos no son válidos.
     #[serde(rename = "INVALID")]
     Invalid,
+    /// El cliente destinatario no existe.
+    #[serde(rename = "NO_SUCH_USER")]
+    NoSuchUser,
 }
 
 #[cfg(test)]

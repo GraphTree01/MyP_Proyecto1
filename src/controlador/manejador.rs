@@ -186,6 +186,54 @@ impl Manejador {
                     username: username.clone(),
                     status,
                 })?;
+            } else if let Mensaje::PrivateText { username, text } = mensaje {
+                if text.trim().is_empty() {
+                    continue;
+                }
+
+                let destinatario = {
+                    let usuarios = self
+                        .usuarios
+                        .lock()
+                        .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
+
+                    usuarios
+                        .get(&username)
+                        .map(|usuario| (usuario.nombre.clone(), usuario.stream.try_clone()))
+                };
+
+                let Some((nombre, stream)) = destinatario else {
+                    self.enviar(&Mensaje::Response {
+                        operation: Operation::Text,
+                        result: Resultado::NoSuchUser,
+                        extra: Some(username),
+                    })?;
+                    continue;
+                };
+
+                match stream {
+                    Ok(mut stream) => {
+                        let mensaje = Mensaje::PrivateTextFrom {
+                            username: self
+                                .nombre
+                                .as_ref()
+                                .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                                .clone(),
+                            text,
+                        };
+                        let json = traductor::serializa(&mensaje)? + "\n";
+                        println!("{}", json.trim_end());
+                        if let Err(error) = stream.write_all(json.as_bytes()) {
+                            eprintln!("No se pudo enviar un mensaje a {}: {}", nombre, error);
+                        }
+                    }
+                    Err(error) => {
+                        eprintln!(
+                            "No se pudo preparar el envío privado para {}: {}",
+                            nombre, error
+                        );
+                    }
+                }
             }
         };
 

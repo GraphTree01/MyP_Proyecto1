@@ -64,23 +64,42 @@ impl Cliente {
     /// Interpreta un comando de consola y lo convierte en un mensaje del protocolo.
     ///
     /// Actualmente reconoce `\\publicText texto`. Devuelve `true` cuando la
-    /// línea fue procesada, incluso si era una línea vacía; se ignora.
+    /// línea fue procesada, incluso si era una línea vacía; se ignora. Y ahora también reconoce
+    ///`\\newStatus active/away/busy/`
     pub fn procesar_comando(&mut self, comando: &str) -> Result<bool, Error> {
         let comando = comando.trim();
         if comando.is_empty() {
             return Ok(true);
         }
 
-        let Some((nombre, text)) = comando.split_once(' ') else {
+        let Some((nombre, argumentos)) = comando.split_once(' ') else {
             return Ok(false);
         };
 
-        if nombre != r"\publicText" || text.trim().is_empty() {
+        if nombre == r"\privateText" {
+            let Some(argumentos) = argumentos.strip_prefix("--to ") else {
+                return Ok(false);
+            };
+            let Some((username, text)) = argumentos.split_once(' ') else {
+                return Ok(false);
+            };
+            if username.trim().is_empty() || text.trim().is_empty() {
+                return Ok(false);
+            }
+
+            self.enviar(&Mensaje::PrivateText {
+                username: username.to_string(),
+                text: text.trim().to_string(),
+            })?;
+            return Ok(true);
+        }
+
+        if nombre != r"\publicText" || argumentos.trim().is_empty() {
             if nombre != r"\newStatus" {
                 return Ok(false);
             }
 
-            let Ok(status) = text.trim().parse::<Status>() else {
+            let Ok(status) = argumentos.trim().parse::<Status>() else {
                 return Ok(false);
             };
 
@@ -89,7 +108,7 @@ impl Cliente {
         }
 
         self.enviar(&Mensaje::PublicText {
-            text: text.trim().to_string(),
+            text: argumentos.trim().to_string(),
         })?;
 
         Ok(true)
@@ -130,6 +149,9 @@ impl Cliente {
                         }
                         Mensaje::PublicTextFrom { username, text } => {
                             println!("{}: {}", username, text);
+                        }
+                        Mensaje::PrivateTextFrom { username, text } => {
+                            println!("Mensaje privado de {}: {}", username, text);
                         }
                         Mensaje::NewStatus { username, status } => {
                             println!("STATUS: \"{}\" -> {}", username, status);
