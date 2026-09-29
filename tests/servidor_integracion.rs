@@ -6,6 +6,7 @@ use std::{
     time::Duration,
 };
 
+use proyecto1::controlador::manejador::MAX_MESSAGE_SIZE;
 use proyecto1::controlador::{
     protocolo::{Mensaje, Operation, Resultado, Status},
     traductor,
@@ -13,27 +14,34 @@ use proyecto1::controlador::{
 use std::collections::HashMap;
 
 fn iniciar_servidor() -> (Child, u16) {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let puerto = listener.local_addr().unwrap().port();
-    drop(listener);
-
-    let mut servidor = Command::new(env!("CARGO_BIN_EXE_servidor"))
-        .arg(puerto.to_string())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-
     for _ in 0..20 {
-        if TcpStream::connect(("127.0.0.1", puerto)).is_ok() {
-            return (servidor, puerto);
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let puerto = listener.local_addr().unwrap().port();
+        drop(listener);
+
+        let mut servidor = Command::new(env!("CARGO_BIN_EXE_servidor"))
+            .arg(puerto.to_string())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .unwrap();
+
+        for _ in 0..20 {
+            if servidor.try_wait().unwrap().is_some() {
+                break;
+            }
+
+            if TcpStream::connect(("127.0.0.1", puerto)).is_ok() {
+                return (servidor, puerto);
+            }
+
+            thread::sleep(Duration::from_millis(50));
         }
 
-        thread::sleep(Duration::from_millis(50));
+        let _ = servidor.kill();
+        let _ = servidor.wait();
     }
 
-    servidor.kill().unwrap();
-    servidor.wait().unwrap();
     panic!("El servidor no inició a tiempo");
 }
 
@@ -57,6 +65,17 @@ fn enviar_mensaje_desde_stream(stream: &mut TcpStream) -> Mensaje {
         .read_line(&mut respuesta)
         .unwrap();
     traductor::deserializa(&respuesta).unwrap()
+}
+
+fn assert_respuesta_invalida(respuesta: Mensaje) {
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::Invalid,
+            result: Resultado::Invalid,
+            extra: None,
+        }
+    ));
 }
 
 fn conectar_cliente_identificado(puerto: u16, nombre: &str) -> TcpStream {
@@ -134,6 +153,83 @@ fn rechaza_cliente_con_nombre_invalido() {
         }
         _ => panic!("Respuesta inesperada"),
     }
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn respuesta_invalida_a_json_sin_tipo() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
+    stream.write_all(b"{}\n").unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(stream).read_line(&mut respuesta).unwrap();
+    assert_respuesta_invalida(traductor::deserializa(&respuesta).unwrap());
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn respuesta_invalida_a_texto_sin_usuario() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
+    let mut lector = BufReader::new(stream.try_clone().unwrap());
+
+    stream
+        .write_all(b"{\"type\":\"IDENTIFY\",\"username\":\"Kimberly\"}\n")
+        .unwrap();
+    let mut respuesta = String::new();
+    lector.read_line(&mut respuesta).unwrap();
+
+    stream
+        .write_all(b"{\"type\":\"TEXT\",\"text\":\"Hola\"}\n")
+        .unwrap();
+    respuesta.clear();
+    lector.read_line(&mut respuesta).unwrap();
+    assert_respuesta_invalida(traductor::deserializa(&respuesta).unwrap());
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn respuesta_invalida_a_status_desconocido() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
+    let mut lector = BufReader::new(stream.try_clone().unwrap());
+
+    stream
+        .write_all(b"{\"type\":\"IDENTIFY\",\"username\":\"Kimberly\"}\n")
+        .unwrap();
+    let mut respuesta = String::new();
+    lector.read_line(&mut respuesta).unwrap();
+
+    stream
+        .write_all(b"{\"type\":\"STATUS\",\"status\":\"UNKNOWN\"}\n")
+        .unwrap();
+    respuesta.clear();
+    lector.read_line(&mut respuesta).unwrap();
+    assert_respuesta_invalida(traductor::deserializa(&respuesta).unwrap());
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn respuesta_invalida_a_mensaje_mayor_a_un_megabyte() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
+    let mut mensaje = String::from("{\"type\":\"IDENTIFY\",\"username\":\"");
+    mensaje.push_str(&"a".repeat(MAX_MESSAGE_SIZE));
+    mensaje.push_str("\"}\n");
+    stream.write_all(mensaje.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(stream).read_line(&mut respuesta).unwrap();
+    assert_respuesta_invalida(traductor::deserializa(&respuesta).unwrap());
 
     servidor.kill().unwrap();
     servidor.wait().unwrap();

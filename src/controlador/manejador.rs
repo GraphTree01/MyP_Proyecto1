@@ -10,6 +10,9 @@ use crate::controlador::protocolo::{Mensaje, Operation, Resultado, Status};
 use crate::controlador::traductor;
 use crate::controlador::usuario::Usuario;
 
+/// Tamaño máximo permitido para el contenido JSON de un mensaje, en bytes.
+pub const MAX_MESSAGE_SIZE: usize = 1024 * 1024;
+
 /// Lee, valida y atiende una conexión TCP autenticada.
 pub struct Manejador {
     reader: BufReader<TcpStream>,
@@ -41,22 +44,64 @@ impl Manejador {
     /// Lee mensajes no vacíos, registra su JSON en el servidor y lo deserializa.
     pub fn leer(&mut self) -> Result<Mensaje, Error> {
         loop {
-            let mut mensaje = String::new();
+            let mut bytes = Vec::new();
 
-            if self.reader.read_line(&mut mensaje)? == 0 {
-                return Err(Error::new(
-                    ErrorKind::UnexpectedEof,
-                    "El cliente se desconectó",
-                ));
+            loop {
+                let buffer = self.reader.fill_buf()?;
+                if buffer.is_empty() {
+                    if bytes.is_empty() {
+                        return Err(Error::new(
+                            ErrorKind::UnexpectedEof,
+                            "El cliente se desconectó",
+                        ));
+                    }
+                    break;
+                }
+
+                if let Some(posicion_nueva_linea) = buffer.iter().position(|byte| *byte == b'\n') {
+                    if bytes.len() + posicion_nueva_linea > MAX_MESSAGE_SIZE {
+                        return Err(Error::new(
+                            ErrorKind::InvalidData,
+                            "El mensaje supera el tamaño máximo permitido",
+                        ));
+                    }
+
+                    bytes.extend_from_slice(&buffer[..posicion_nueva_linea]);
+                    self.reader.consume(posicion_nueva_linea + 1);
+                    break;
+                }
+
+                if bytes.len() + buffer.len() > MAX_MESSAGE_SIZE {
+                    return Err(Error::new(
+                        ErrorKind::InvalidData,
+                        "El mensaje supera el tamaño máximo permitido",
+                    ));
+                }
+
+                bytes.extend_from_slice(buffer);
+                let longitud = buffer.len();
+                self.reader.consume(longitud);
             }
+
+            let mensaje = String::from_utf8(bytes)
+                .map_err(|_| Error::new(ErrorKind::InvalidData, "El mensaje no es UTF-8"))?;
 
             if mensaje.trim().is_empty() {
                 continue;
             }
 
             println!("{}", mensaje.trim_end());
-            return Ok(traductor::deserializa(&mensaje)?);
+            return traductor::deserializa(&mensaje)
+                .map_err(|error| Error::new(ErrorKind::InvalidData, error));
         }
+    }
+
+    fn enviar_mensaje_invalido(&mut self) -> Result<(), Error> {
+        self.enviar(&Mensaje::Response {
+            operation: Operation::Invalid,
+            result: Resultado::Invalid,
+            extra: None,
+        })
     }
 
     /// Comprueba las reglas actuales para un nombre de usuario.
@@ -66,7 +111,14 @@ impl Manejador {
 
     /// Procesa el primer mensaje e incorpora al cliente si su nombre es válido y único.
     pub fn verificar(&mut self) -> Result<bool, Error> {
-        let mensaje = self.leer()?;
+        let mensaje = match self.leer() {
+            Ok(mensaje) => mensaje,
+            Err(error) if error.kind() == ErrorKind::InvalidData => {
+                self.enviar_mensaje_invalido()?;
+                return Ok(false);
+            }
+            Err(error) => return Err(error),
+        };
 
         match mensaje {
             Mensaje::Identify { username } => {
@@ -148,6 +200,10 @@ impl Manejador {
                 let mensaje = match self.leer() {
                     Ok(mensaje) => mensaje,
                     Err(error) if error.kind() == ErrorKind::UnexpectedEof => break Ok(()),
+                    Err(error) if error.kind() == ErrorKind::InvalidData => {
+                        self.enviar_mensaje_invalido()?;
+                        break Ok(());
+                    }
                     Err(error) => break Err(error),
                 };
 
