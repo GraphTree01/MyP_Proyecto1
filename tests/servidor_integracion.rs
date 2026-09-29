@@ -865,3 +865,127 @@ fn rechaza_texto_de_usuario_no_unido() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn permite_salir_del_cuarto_y_notifica_a_los_demas_miembros() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut miembro = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut lectura_miembro = BufReader::new(miembro.try_clone().unwrap());
+    let mut linea = String::new();
+
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::Invite {
+        roomname: "Sala 1".to_string(),
+        usernames: vec!["Fernando".to_string()],
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_miembro.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::JoinRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    miembro.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_miembro.read_line(&mut linea).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::LeaveRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    miembro.write_all(json.as_bytes()).unwrap();
+
+    let mut notificacion = String::new();
+    lectura_creador.read_line(&mut notificacion).unwrap();
+    assert!(matches!(
+        traductor::deserializa(&notificacion).unwrap(),
+        Mensaje::LeftRoom { roomname, username }
+            if roomname == "Sala 1" && username == "Fernando"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_salir_de_un_cuarto_inexistente() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut json = traductor::serializa(&Mensaje::LeaveRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    cliente.write_all(json.as_bytes()).unwrap();
+
+    let respuesta = enviar_mensaje_desde_stream(&mut cliente);
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::LeaveRoom,
+            result: Resultado::NoSuchRoom,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_salir_de_un_cuarto_sin_pertenecer() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut visitante = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut linea = String::new();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::LeaveRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    visitante.write_all(json.as_bytes()).unwrap();
+
+    let respuesta = enviar_mensaje_desde_stream(&mut visitante);
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::LeaveRoom,
+            result: Resultado::NotJoined,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}

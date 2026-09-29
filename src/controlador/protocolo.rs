@@ -112,6 +112,14 @@ pub enum Mensaje {
         username: String,
         text: String,
     },
+
+    /// Solicitud de un cliente para abandonar un cuarto.
+    #[serde(rename = "LEAVE_ROOM")]
+    LeaveRoom { roomname: String },
+
+    /// Respuesta del servidor al cliente que pide abandonar un cuarto
+    #[serde(rename = "LEFT_ROOM")]
+    LeftRoom { roomname: String, username: String },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -141,6 +149,9 @@ pub enum Operation {
     /// Resultado de una solicitud de unión a un cuarto que no existe.
     #[serde(rename = "ROOM_TEXT")]
     RoomText,
+    /// Resultado de una solicitud para abandonar un cuarto.
+    #[serde(rename = "LEAVE_ROOM")]
+    LeaveRoom,
 }
 
 /// Estado visible de un usuario conectado.

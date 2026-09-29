@@ -110,7 +110,15 @@ Solo los miembros que ya se unieron al cuarto pueden consultar sus usuarios y es
 \roomText --room "Sala 1" Hola sala 1
 ```
 
-Solo los miembros que ya se unieron al cuarto reciben el mensaje. El emisor no recibe una copia.
+Solo los miembros que ya se unieron al cuarto reciben el mensaje.
+
+### Salir de un cuarto
+
+```text
+\leaveRoom "Sala 1"
+```
+
+El usuario sale del cuarto y los demás miembros reciben `LEFT_ROOM`. Si era el último miembro, el cuarto se elimina.
 
 ### Crear un cuarto
 

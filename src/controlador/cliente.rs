@@ -134,6 +134,17 @@ impl Cliente {
             return Ok(true);
         }
 
+        if let Some(roomname) = comando.strip_prefix(r"\leaveRoom ") {
+            if roomname.trim().is_empty() {
+                return Ok(false);
+            }
+
+            self.enviar(&Mensaje::LeaveRoom {
+                roomname: roomname.trim_matches('"').trim().to_string(),
+            })?;
+            return Ok(true);
+        }
+
         if let Some(argumentos) = comando.strip_prefix(r"\invite ") {
             let Some(argumentos) = argumentos.strip_prefix("--room ") else {
                 return Ok(false);
@@ -267,6 +278,9 @@ impl Cliente {
                         }
                         Mensaje::JoinedRoom { roomname, username } => {
                             println!("{} se unió al cuarto \"{}\".", username, roomname);
+                        }
+                        Mensaje::LeftRoom { roomname, username } => {
+                            println!("{} salió del cuarto \"{}\".", username, roomname);
                         }
                         Mensaje::Response { result, extra, .. } => {
                             if let Resultado::NoSuchUser = result {
