@@ -495,3 +495,106 @@ fn rechaza_invitacion_a_sala_inexistente() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn permite_unirse_a_un_cuarto_con_invitacion() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut invitado = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut lectura_invitado = BufReader::new(invitado.try_clone().unwrap());
+    let mut linea = String::new();
+
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::Invite {
+        roomname: "Sala 1".to_string(),
+        usernames: vec!["Fernando".to_string()],
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_invitado.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::JoinRoom {
+        roomname: "Sala 1".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    invitado.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta_invitado = String::new();
+    lectura_invitado.read_line(&mut respuesta_invitado).unwrap();
+    assert!(matches!(
+        traductor::deserializa(&respuesta_invitado).unwrap(),
+        Mensaje::Response {
+            operation: Operation::JoinRoom,
+            result: Resultado::Success,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    let mut notificacion = String::new();
+    lectura_creador.read_line(&mut notificacion).unwrap();
+    assert!(matches!(
+        traductor::deserializa(&notificacion).unwrap(),
+        Mensaje::JoinedRoom { roomname, username }
+            if roomname == "Sala 1" && username == "Fernando"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_unirse_sin_invitacion() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut cliente = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+
+    let mut linea = String::new();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::JoinRoom {
+        roomname: "Sala 1".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    cliente.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut cliente)
+        .read_line(&mut respuesta)
+        .unwrap();
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::Response {
+            operation: Operation::JoinRoom,
+            result: Resultado::NotInvited,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}

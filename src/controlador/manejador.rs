@@ -143,251 +143,316 @@ impl Manejador {
 
     /// Atiende mensajes hasta la desconexión y libera el nombre del usuario.
     pub fn atender(&mut self) -> Result<(), Error> {
-        let resultado = loop {
-            let mensaje = match self.leer() {
-                Ok(mensaje) => mensaje,
-                Err(error) if error.kind() == ErrorKind::UnexpectedEof => break Ok(()),
-                Err(error) => break Err(error),
-            };
-
-            if let Mensaje::Disconnect = mensaje {
-                break Ok(());
-            } else if let Mensaje::Users = mensaje {
-                let users = {
-                    let estado = self
-                        .estado
-                        .lock()
-                        .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
-
-                    estado
-                        .usuarios
-                        .values()
-                        .map(|usuario| (usuario.nombre.clone(), usuario.status))
-                        .collect()
+        let resultado =
+            loop {
+                let mensaje = match self.leer() {
+                    Ok(mensaje) => mensaje,
+                    Err(error) if error.kind() == ErrorKind::UnexpectedEof => break Ok(()),
+                    Err(error) => break Err(error),
                 };
 
-                self.enviar(&Mensaje::UserList { users })?;
-            } else if let Mensaje::NewRoom { roomname } = mensaje {
-                let username = self
-                    .nombre
-                    .as_ref()
-                    .ok_or_else(|| Error::other("El cliente no está identificado"))?;
+                if let Mensaje::Disconnect = mensaje {
+                    break Ok(());
+                } else if let Mensaje::Users = mensaje {
+                    let users = {
+                        let estado = self
+                            .estado
+                            .lock()
+                            .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
 
-                if !Cuarto::nombre_valido(&roomname) {
-                    self.enviar(&Mensaje::Response {
-                        operation: Operation::NewRoom,
-                        result: Resultado::Invalid,
-                        extra: Some(roomname),
-                    })?;
-                    continue;
-                }
-
-                let mut estado = self
-                    .estado
-                    .lock()
-                    .map_err(|_| Error::other("No se pudo acceder al estado del servidor"))?;
-
-                if estado.cuartos.contains_key(&roomname) {
-                    drop(estado);
-                    self.enviar(&Mensaje::Response {
-                        operation: Operation::NewRoom,
-                        result: Resultado::RoomAlreadyExists,
-                        extra: Some(roomname),
-                    })?;
-                    continue;
-                }
-
-                estado.cuartos.insert(
-                    roomname.clone(),
-                    Cuarto::nuevo(roomname.clone(), username.clone()),
-                );
-                drop(estado);
-
-                self.enviar(&Mensaje::Response {
-                    operation: Operation::NewRoom,
-                    result: Resultado::Success,
-                    extra: Some(roomname),
-                })?;
-            } else if let Mensaje::Invite {
-                roomname,
-                usernames,
-            } = mensaje
-            {
-                let username = self
-                    .nombre
-                    .as_ref()
-                    .ok_or_else(|| Error::other("El cliente no está identificado"))?
-                    .clone();
-
-                let invitaciones = {
-                    let mut estado = self
-                        .estado
-                        .lock()
-                        .map_err(|_| Error::other("No se pudo acceder al estado del servidor"))?;
-
-                    let Some(cuarto) = estado.cuartos.get(&roomname) else {
-                        drop(estado);
-                        self.enviar(&Mensaje::Response {
-                            operation: Operation::Invite,
-                            result: Resultado::NoSuchRoom,
-                            extra: Some(roomname),
-                        })?;
-                        continue;
+                        estado
+                            .usuarios
+                            .values()
+                            .map(|usuario| (usuario.nombre.clone(), usuario.status))
+                            .collect()
                     };
 
-                    if !cuarto.miembros.contains(&username) {
-                        drop(estado);
+                    self.enviar(&Mensaje::UserList { users })?;
+                } else if let Mensaje::NewRoom { roomname } = mensaje {
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?;
+
+                    if !Cuarto::nombre_valido(&roomname) {
                         self.enviar(&Mensaje::Response {
-                            operation: Operation::Invite,
+                            operation: Operation::NewRoom,
                             result: Resultado::Invalid,
                             extra: Some(roomname),
                         })?;
                         continue;
                     }
 
-                    if let Some(no_existente) = usernames
-                        .iter()
-                        .find(|invitado| !estado.usuarios.contains_key(*invitado))
-                    {
-                        let no_existente = no_existente.clone();
+                    let mut estado = self
+                        .estado
+                        .lock()
+                        .map_err(|_| Error::other("No se pudo acceder al estado del servidor"))?;
+
+                    if estado.cuartos.contains_key(&roomname) {
                         drop(estado);
                         self.enviar(&Mensaje::Response {
-                            operation: Operation::Invite,
-                            result: Resultado::NoSuchUser,
-                            extra: Some(no_existente),
+                            operation: Operation::NewRoom,
+                            result: Resultado::RoomAlreadyExists,
+                            extra: Some(roomname),
                         })?;
                         continue;
                     }
 
-                    let mut invitaciones = Vec::new();
-                    for invitado in usernames {
-                        let puede_invitar = estado
-                            .cuartos
-                            .get(&roomname)
-                            .map(|cuarto| {
-                                !cuarto.miembros.contains(&invitado)
-                                    && !cuarto.invitados.contains(&invitado)
-                            })
-                            .unwrap_or(false);
+                    estado.cuartos.insert(
+                        roomname.clone(),
+                        Cuarto::nuevo(roomname.clone(), username.clone()),
+                    );
+                    drop(estado);
 
-                        if !puede_invitar {
+                    self.enviar(&Mensaje::Response {
+                        operation: Operation::NewRoom,
+                        result: Resultado::Success,
+                        extra: Some(roomname),
+                    })?;
+                } else if let Mensaje::Invite {
+                    roomname,
+                    usernames,
+                } = mensaje
+                {
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                        .clone();
+
+                    let invitaciones = {
+                        let mut estado = self.estado.lock().map_err(|_| {
+                            Error::other("No se pudo acceder al estado del servidor")
+                        })?;
+
+                        let Some(cuarto) = estado.cuartos.get(&roomname) else {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::Invite,
+                                result: Resultado::NoSuchRoom,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        };
+
+                        if !cuarto.miembros.contains(&username) {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::Invite,
+                                result: Resultado::Invalid,
+                                extra: Some(roomname),
+                            })?;
                             continue;
                         }
 
-                        if let Some(usuario) = estado.usuarios.get(&invitado) {
-                            let stream = usuario.stream.try_clone()?;
-                            estado
-                                .cuartos
-                                .get_mut(&roomname)
-                                .ok_or_else(|| Error::other("El cuarto dejó de existir"))?
-                                .invitados
-                                .insert(invitado.clone());
-                            invitaciones.push((invitado, stream));
+                        if let Some(no_existente) = usernames
+                            .iter()
+                            .find(|invitado| !estado.usuarios.contains_key(*invitado))
+                        {
+                            let no_existente = no_existente.clone();
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::Invite,
+                                result: Resultado::NoSuchUser,
+                                extra: Some(no_existente),
+                            })?;
+                            continue;
                         }
-                    }
 
-                    invitaciones
-                };
+                        let mut invitaciones = Vec::new();
+                        for invitado in usernames {
+                            let puede_invitar = estado
+                                .cuartos
+                                .get(&roomname)
+                                .map(|cuarto| {
+                                    !cuarto.miembros.contains(&invitado)
+                                        && !cuarto.invitados.contains(&invitado)
+                                })
+                                .unwrap_or(false);
 
-                for (destinatario, mut stream) in invitaciones {
-                    let mensaje = Mensaje::Invitation {
-                        username: username.clone(),
-                        roomname: roomname.clone(),
+                            if !puede_invitar {
+                                continue;
+                            }
+
+                            if let Some(usuario) = estado.usuarios.get(&invitado) {
+                                let stream = usuario.stream.try_clone()?;
+                                estado
+                                    .cuartos
+                                    .get_mut(&roomname)
+                                    .ok_or_else(|| Error::other("El cuarto dejó de existir"))?
+                                    .invitados
+                                    .insert(invitado.clone());
+                                invitaciones.push((invitado, stream));
+                            }
+                        }
+
+                        invitaciones
                     };
-                    let json = traductor::serializa(&mensaje)? + "\n";
-                    println!("{}", json.trim_end());
-                    if let Err(error) = stream.write_all(json.as_bytes()) {
-                        eprintln!(
-                            "No se pudo enviar la invitación a {}: {}",
-                            destinatario, error
-                        );
-                    }
-                }
-            } else if let Mensaje::PublicText { text } = mensaje {
-                if text.trim().is_empty() {
-                    continue;
-                }
 
-                let username = self
-                    .nombre
-                    .as_ref()
-                    .ok_or_else(|| Error::other("El cliente no está identificado"))?;
-                let mensaje = Mensaje::PublicTextFrom {
-                    username: username.clone(),
-                    text,
-                };
-
-                self.difundir(&mensaje)?;
-            } else if let Mensaje::Status { status } = mensaje {
-                let username = self
-                    .nombre
-                    .as_ref()
-                    .ok_or_else(|| Error::other("El cliente no está identificado"))?;
-
-                let mut estado = self
-                    .estado
-                    .lock()
-                    .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
-                if let Some(usuario) = estado.usuarios.get_mut(username) {
-                    usuario.status = status;
-                }
-                drop(estado);
-
-                self.difundir(&Mensaje::NewStatus {
-                    username: username.clone(),
-                    status,
-                })?;
-            } else if let Mensaje::PrivateText { username, text } = mensaje {
-                if text.trim().is_empty() {
-                    continue;
-                }
-
-                let destinatario = {
-                    let estado = self
-                        .estado
-                        .lock()
-                        .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
-
-                    estado
-                        .usuarios
-                        .get(&username)
-                        .map(|usuario| (usuario.nombre.clone(), usuario.stream.try_clone()))
-                };
-
-                let Some((nombre, stream)) = destinatario else {
-                    self.enviar(&Mensaje::Response {
-                        operation: Operation::Text,
-                        result: Resultado::NoSuchUser,
-                        extra: Some(username),
-                    })?;
-                    continue;
-                };
-
-                match stream {
-                    Ok(mut stream) => {
-                        let mensaje = Mensaje::PrivateTextFrom {
-                            username: self
-                                .nombre
-                                .as_ref()
-                                .ok_or_else(|| Error::other("El cliente no está identificado"))?
-                                .clone(),
-                            text,
+                    for (destinatario, mut stream) in invitaciones {
+                        let mensaje = Mensaje::Invitation {
+                            username: username.clone(),
+                            roomname: roomname.clone(),
                         };
                         let json = traductor::serializa(&mensaje)? + "\n";
                         println!("{}", json.trim_end());
                         if let Err(error) = stream.write_all(json.as_bytes()) {
-                            eprintln!("No se pudo enviar un mensaje a {}: {}", nombre, error);
+                            eprintln!(
+                                "No se pudo enviar la invitación a {}: {}",
+                                destinatario, error
+                            );
                         }
                     }
-                    Err(error) => {
-                        eprintln!(
-                            "No se pudo preparar el envío privado para {}: {}",
-                            nombre, error
-                        );
+                } else if let Mensaje::JoinRoom { roomname } = mensaje {
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                        .clone();
+
+                    let destinatarios = {
+                        let mut estado = self.estado.lock().map_err(|_| {
+                            Error::other("No se pudo acceder al estado del servidor")
+                        })?;
+
+                        let Some(cuarto) = estado.cuartos.get_mut(&roomname) else {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::JoinRoom,
+                                result: Resultado::NoSuchRoom,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        };
+
+                        if !cuarto.invitados.remove(&username) {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::JoinRoom,
+                                result: Resultado::NotInvited,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        }
+
+                        cuarto.miembros.insert(username.clone());
+                        let miembros = cuarto
+                            .miembros
+                            .iter()
+                            .filter(|miembro| miembro.as_str() != username)
+                            .cloned()
+                            .collect::<Vec<_>>();
+
+                        miembros
+                            .iter()
+                            .filter_map(|miembro| {
+                                estado
+                                    .usuarios
+                                    .get(miembro)
+                                    .and_then(|usuario| usuario.stream.try_clone().ok())
+                            })
+                            .collect::<Vec<_>>()
+                    };
+
+                    self.enviar(&Mensaje::Response {
+                        operation: Operation::JoinRoom,
+                        result: Resultado::Success,
+                        extra: Some(roomname.clone()),
+                    })?;
+
+                    let mensaje = Mensaje::JoinedRoom { roomname, username };
+                    let json = traductor::serializa(&mensaje)? + "\n";
+                    println!("{}", json.trim_end());
+                    for mut stream in destinatarios {
+                        if let Err(error) = stream.write_all(json.as_bytes()) {
+                            eprintln!("No se pudo notificar la unión al cuarto: {}", error);
+                        }
+                    }
+                } else if let Mensaje::PublicText { text } = mensaje {
+                    if text.trim().is_empty() {
+                        continue;
+                    }
+
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?;
+                    let mensaje = Mensaje::PublicTextFrom {
+                        username: username.clone(),
+                        text,
+                    };
+
+                    self.difundir(&mensaje)?;
+                } else if let Mensaje::Status { status } = mensaje {
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?;
+
+                    let mut estado = self
+                        .estado
+                        .lock()
+                        .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
+                    if let Some(usuario) = estado.usuarios.get_mut(username) {
+                        usuario.status = status;
+                    }
+                    drop(estado);
+
+                    self.difundir(&Mensaje::NewStatus {
+                        username: username.clone(),
+                        status,
+                    })?;
+                } else if let Mensaje::PrivateText { username, text } = mensaje {
+                    if text.trim().is_empty() {
+                        continue;
+                    }
+
+                    let destinatario = {
+                        let estado = self
+                            .estado
+                            .lock()
+                            .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
+
+                        estado
+                            .usuarios
+                            .get(&username)
+                            .map(|usuario| (usuario.nombre.clone(), usuario.stream.try_clone()))
+                    };
+
+                    let Some((nombre, stream)) = destinatario else {
+                        self.enviar(&Mensaje::Response {
+                            operation: Operation::Text,
+                            result: Resultado::NoSuchUser,
+                            extra: Some(username),
+                        })?;
+                        continue;
+                    };
+
+                    match stream {
+                        Ok(mut stream) => {
+                            let mensaje = Mensaje::PrivateTextFrom {
+                                username: self
+                                    .nombre
+                                    .as_ref()
+                                    .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                                    .clone(),
+                                text,
+                            };
+                            let json = traductor::serializa(&mensaje)? + "\n";
+                            println!("{}", json.trim_end());
+                            if let Err(error) = stream.write_all(json.as_bytes()) {
+                                eprintln!("No se pudo enviar un mensaje a {}: {}", nombre, error);
+                            }
+                        }
+                        Err(error) => {
+                            eprintln!(
+                                "No se pudo preparar el envío privado para {}: {}",
+                                nombre, error
+                            );
+                        }
                     }
                 }
-            }
-        };
+            };
 
         if let Some(nombre) = self.nombre.take() {
             let notificacion = Mensaje::Disconnected {

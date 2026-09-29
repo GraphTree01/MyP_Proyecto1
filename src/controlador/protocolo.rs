@@ -66,9 +66,11 @@ pub enum Mensaje {
     #[serde(rename = "USER_LIST")]
     UserList { users: HashMap<String, Status> },
 
+    //Solicita la creación de un nuevo cuarto
     #[serde(rename = "NEW_ROOM")]
     NewRoom { roomname: String },
 
+    ///Solicita invitar a uno o más usuarios a un cuerto creado
     #[serde(rename = "INVITE")]
     Invite {
         roomname: String,
@@ -78,6 +80,15 @@ pub enum Mensaje {
     /// Notifica a un usuario que fue invitado a una sala.
     #[serde(rename = "INVITATION")]
     Invitation { username: String, roomname: String },
+
+    /// Solicita al servidor unirse a un cuarto al que
+    // fue previamente fue invitado.
+    #[serde(rename = "JOIN_ROOM")]
+    JoinRoom { roomname: String },
+
+    /// Notifica a los usuarios de una sala que un nuevo miembro se unió.
+    #[serde(rename = "JOINED_ROOM")]
+    JoinedRoom { roomname: String, username: String },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -92,12 +103,15 @@ pub enum Operation {
     /// Resultado si el usuario destinatario no existe.
     #[serde(rename = "TEXT")]
     Text,
-
+    /// Resultado para la creación de un nuevo cuarto
     #[serde(rename = "NEW_ROOM")]
     NewRoom,
-
+    /// Operación que acompaña a un cuarto que no existe.
     #[serde(rename = "INVITE")]
     Invite,
+    /// Resultado de una solicitud de unión a un cuarto.
+    #[serde(rename = "JOIN_ROOM")]
+    JoinRoom,
 }
 
 /// Estado visible de un usuario conectado.
@@ -159,12 +173,15 @@ pub enum Resultado {
     /// El cliente destinatario no existe.
     #[serde(rename = "NO_SUCH_USER")]
     NoSuchUser,
-
+    ///El nombre de la sala esta duplicado
     #[serde(rename = "ROOM_ALREADY_EXISTS")]
     RoomAlreadyExists,
-
+    ///La sala a la que se hace referencia no existe
     #[serde(rename = "NO_SUCH_ROOM")]
     NoSuchRoom,
+    // El cliente no fue invitado al cuarto
+    #[serde(rename = "NOT_INVITED")]
+    NotInvited,
 }
 
 #[cfg(test)]

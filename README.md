@@ -88,6 +88,14 @@ El servidor responde únicamente al cliente que hizo la solicitud con la lista d
 
 Solo un miembro del cuarto puede invitar. La sala y todos los usuarios indicados deben existir. Las invitaciones repetidas y los usuarios que ya son miembros se ignoran.
 
+### Unirse a un cuarto
+
+```text
+\joinRoom "Sala 1"
+```
+
+El usuario debe tener una invitación pendiente. Al unirse, los miembros actuales reciben la notificación `JOINED_ROOM`.
+
 ### Crear un cuarto
 
 ```text
