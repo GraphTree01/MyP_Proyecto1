@@ -118,7 +118,7 @@ Solo los miembros que ya se unieron al cuarto reciben el mensaje.
 \leaveRoom "Sala 1"
 ```
 
-El usuario sale del cuarto y los demás miembros reciben `LEFT_ROOM`. Si era el último miembro, el cuarto se elimina.
+El usuario sale del cuarto y los demás miembros se les notifica el suceso.
 
 ### Crear un cuarto
 

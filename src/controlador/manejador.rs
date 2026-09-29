@@ -624,23 +624,77 @@ impl Manejador {
             };
 
         if let Some(nombre) = self.nombre.take() {
+            let salidas = {
+                let mut estado = self
+                    .estado
+                    .lock()
+                    .map_err(|_| Error::other("No se pudo acceder al estado del servidor"))?;
+                let nombres_cuartos = estado
+                    .cuartos
+                    .iter()
+                    .filter(|(_, cuarto)| cuarto.miembros.contains(&nombre))
+                    .map(|(roomname, _)| roomname.clone())
+                    .collect::<Vec<_>>();
+                let mut salidas = Vec::new();
+
+                for roomname in nombres_cuartos {
+                    let miembros = {
+                        let cuarto = estado
+                            .cuartos
+                            .get_mut(&roomname)
+                            .ok_or_else(|| Error::other("El cuarto dejó de existir"))?;
+                        cuarto.miembros.remove(&nombre);
+                        cuarto.miembros.iter().cloned().collect::<Vec<_>>()
+                    };
+
+                    let destinatarios = miembros
+                        .iter()
+                        .filter_map(|miembro| {
+                            estado
+                                .usuarios
+                                .get(miembro)
+                                .and_then(|usuario| usuario.stream.try_clone().ok())
+                        })
+                        .collect::<Vec<_>>();
+                    salidas.push((roomname.clone(), destinatarios));
+
+                    if estado
+                        .cuartos
+                        .get(&roomname)
+                        .is_some_and(Cuarto::esta_vacio)
+                    {
+                        estado.cuartos.remove(&roomname);
+                    }
+                }
+
+                estado.usuarios.remove(&nombre);
+                estado.cuartos.retain(|_, cuarto| {
+                    cuarto.invitados.remove(&nombre);
+                    !cuarto.esta_vacio()
+                });
+                salidas
+            };
+
+            for (roomname, destinatarios) in salidas {
+                let mensaje = Mensaje::LeftRoom {
+                    roomname,
+                    username: nombre.clone(),
+                };
+                let json = traductor::serializa(&mensaje)? + "\n";
+                println!("{}", json.trim_end());
+                for mut stream in destinatarios {
+                    if let Err(error) = stream.write_all(json.as_bytes()) {
+                        eprintln!("No se pudo notificar la salida del cuarto: {}", error);
+                    }
+                }
+            }
+
             let notificacion = Mensaje::Disconnected {
                 username: nombre.clone(),
             };
             if let Err(error) = self.difundir(&notificacion) {
                 eprintln!("No se pudo notificar la desconexión: {}", error);
             }
-
-            let mut estado = self
-                .estado
-                .lock()
-                .map_err(|_| Error::other("No se pudo acceder a los usuarios"))?;
-            estado.usuarios.remove(&nombre);
-            estado.cuartos.retain(|_, cuarto| {
-                cuarto.miembros.remove(&nombre);
-                cuarto.invitados.remove(&nombre);
-                !cuarto.esta_vacio()
-            });
         }
 
         resultado

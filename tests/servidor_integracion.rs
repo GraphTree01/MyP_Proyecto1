@@ -989,3 +989,67 @@ fn rechaza_salir_de_un_cuarto_sin_pertenecer() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn desconectar_usuario_abandona_sus_cuartos_y_notifica() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut miembro = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut lectura_miembro = BufReader::new(miembro.try_clone().unwrap());
+    let mut linea = String::new();
+
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::Invite {
+        roomname: "Sala 1".to_string(),
+        usernames: vec!["Fernando".to_string()],
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_miembro.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::JoinRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    miembro.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_miembro.read_line(&mut linea).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    miembro
+        .write_all((serde_json::to_string(&Mensaje::Disconnect).unwrap() + "\n").as_bytes())
+        .unwrap();
+
+    let mut left_room = String::new();
+    lectura_creador.read_line(&mut left_room).unwrap();
+    assert!(matches!(
+        traductor::deserializa(&left_room).unwrap(),
+        Mensaje::LeftRoom { roomname, username }
+            if roomname == "Sala 1" && username == "Fernando"
+    ));
+
+    let mut disconnected = String::new();
+    lectura_creador.read_line(&mut disconnected).unwrap();
+    assert!(matches!(
+        traductor::deserializa(&disconnected).unwrap(),
+        Mensaje::Disconnected { username } if username == "Fernando"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
