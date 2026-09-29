@@ -93,6 +93,32 @@ impl Cliente {
             return Ok(true);
         }
 
+        if let Some(argumentos) = comando.strip_prefix(r"\invite ") {
+            let Some(argumentos) = argumentos.strip_prefix("--room ") else {
+                return Ok(false);
+            };
+            let Some((roomname, usernames)) = argumentos.split_once(" --to ") else {
+                return Ok(false);
+            };
+            let roomname = roomname.trim_matches('"').trim();
+            let usernames: Vec<String> = usernames
+                .split(',')
+                .map(str::trim)
+                .filter(|username| !username.is_empty())
+                .map(str::to_string)
+                .collect();
+
+            if roomname.is_empty() || usernames.is_empty() {
+                return Ok(false);
+            }
+
+            self.enviar(&Mensaje::Invite {
+                roomname: roomname.to_string(),
+                usernames,
+            })?;
+            return Ok(true);
+        }
+
         let Some((nombre, argumentos)) = comando.split_once(' ') else {
             return Ok(false);
         };
@@ -181,6 +207,9 @@ impl Cliente {
                             for (username, status) in users {
                                 println!("{}: {}", username, status);
                             }
+                        }
+                        Mensaje::Invitation { username, roomname } => {
+                            println!("{} te invitó al cuarto \"{}\".", username, roomname);
                         }
                         Mensaje::Response { result, extra, .. } => {
                             if let Resultado::NoSuchUser = result {

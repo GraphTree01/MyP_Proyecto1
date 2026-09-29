@@ -208,6 +208,101 @@ impl Manejador {
                     result: Resultado::Success,
                     extra: Some(roomname),
                 })?;
+            } else if let Mensaje::Invite {
+                roomname,
+                usernames,
+            } = mensaje
+            {
+                let username = self
+                    .nombre
+                    .as_ref()
+                    .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                    .clone();
+
+                let invitaciones = {
+                    let mut estado = self
+                        .estado
+                        .lock()
+                        .map_err(|_| Error::other("No se pudo acceder al estado del servidor"))?;
+
+                    let Some(cuarto) = estado.cuartos.get(&roomname) else {
+                        drop(estado);
+                        self.enviar(&Mensaje::Response {
+                            operation: Operation::Invite,
+                            result: Resultado::NoSuchRoom,
+                            extra: Some(roomname),
+                        })?;
+                        continue;
+                    };
+
+                    if !cuarto.miembros.contains(&username) {
+                        drop(estado);
+                        self.enviar(&Mensaje::Response {
+                            operation: Operation::Invite,
+                            result: Resultado::Invalid,
+                            extra: Some(roomname),
+                        })?;
+                        continue;
+                    }
+
+                    if let Some(no_existente) = usernames
+                        .iter()
+                        .find(|invitado| !estado.usuarios.contains_key(*invitado))
+                    {
+                        let no_existente = no_existente.clone();
+                        drop(estado);
+                        self.enviar(&Mensaje::Response {
+                            operation: Operation::Invite,
+                            result: Resultado::NoSuchUser,
+                            extra: Some(no_existente),
+                        })?;
+                        continue;
+                    }
+
+                    let mut invitaciones = Vec::new();
+                    for invitado in usernames {
+                        let puede_invitar = estado
+                            .cuartos
+                            .get(&roomname)
+                            .map(|cuarto| {
+                                !cuarto.miembros.contains(&invitado)
+                                    && !cuarto.invitados.contains(&invitado)
+                            })
+                            .unwrap_or(false);
+
+                        if !puede_invitar {
+                            continue;
+                        }
+
+                        if let Some(usuario) = estado.usuarios.get(&invitado) {
+                            let stream = usuario.stream.try_clone()?;
+                            estado
+                                .cuartos
+                                .get_mut(&roomname)
+                                .ok_or_else(|| Error::other("El cuarto dejó de existir"))?
+                                .invitados
+                                .insert(invitado.clone());
+                            invitaciones.push((invitado, stream));
+                        }
+                    }
+
+                    invitaciones
+                };
+
+                for (destinatario, mut stream) in invitaciones {
+                    let mensaje = Mensaje::Invitation {
+                        username: username.clone(),
+                        roomname: roomname.clone(),
+                    };
+                    let json = traductor::serializa(&mensaje)? + "\n";
+                    println!("{}", json.trim_end());
+                    if let Err(error) = stream.write_all(json.as_bytes()) {
+                        eprintln!(
+                            "No se pudo enviar la invitación a {}: {}",
+                            destinatario, error
+                        );
+                    }
+                }
             } else if let Mensaje::PublicText { text } = mensaje {
                 if text.trim().is_empty() {
                     continue;

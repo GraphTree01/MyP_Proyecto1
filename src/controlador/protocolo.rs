@@ -68,6 +68,16 @@ pub enum Mensaje {
 
     #[serde(rename = "NEW_ROOM")]
     NewRoom { roomname: String },
+
+    #[serde(rename = "INVITE")]
+    Invite {
+        roomname: String,
+        usernames: Vec<String>,
+    },
+
+    /// Notifica a un usuario que fue invitado a una sala.
+    #[serde(rename = "INVITATION")]
+    Invitation { username: String, roomname: String },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -85,6 +95,9 @@ pub enum Operation {
 
     #[serde(rename = "NEW_ROOM")]
     NewRoom,
+
+    #[serde(rename = "INVITE")]
+    Invite,
 }
 
 /// Estado visible de un usuario conectado.
@@ -149,6 +162,9 @@ pub enum Resultado {
 
     #[serde(rename = "ROOM_ALREADY_EXISTS")]
     RoomAlreadyExists,
+
+    #[serde(rename = "NO_SUCH_ROOM")]
+    NoSuchRoom,
 }
 
 #[cfg(test)]

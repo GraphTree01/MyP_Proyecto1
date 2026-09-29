@@ -412,3 +412,86 @@ fn rechaza_un_cuarto_con_nombre_repetido() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn invita_a_multiples_usuarios_de_un_cuarto() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let luis = conectar_cliente_identificado(puerto, "Luis");
+    let antonio = conectar_cliente_identificado(puerto, "Antonio");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut lectura_luis = BufReader::new(luis.try_clone().unwrap());
+    let mut lectura_antonio = BufReader::new(antonio.try_clone().unwrap());
+
+    let mut notificacion = String::new();
+    lectura_creador.read_line(&mut notificacion).unwrap();
+    notificacion.clear();
+    lectura_creador.read_line(&mut notificacion).unwrap();
+
+    notificacion.clear();
+    lectura_luis.read_line(&mut notificacion).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    lectura_creador.read_line(&mut respuesta).unwrap();
+
+    let mensaje = Mensaje::Invite {
+        roomname: "Sala 1".to_string(),
+        usernames: vec!["Luis".to_string(), "Antonio".to_string()],
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+
+    let mut invitacion_luis = String::new();
+    lectura_luis.read_line(&mut invitacion_luis).unwrap();
+    let mut invitacion_antonio = String::new();
+    lectura_antonio.read_line(&mut invitacion_antonio).unwrap();
+
+    for invitacion in [invitacion_luis, invitacion_antonio] {
+        assert!(matches!(
+            traductor::deserializa(&invitacion).unwrap(),
+            Mensaje::Invitation { username, roomname }
+                if username == "Kimberly" && roomname == "Sala 1"
+        ));
+    }
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_invitacion_a_sala_inexistente() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
+    let mensaje = Mensaje::Invite {
+        roomname: "No existe".to_string(),
+        usernames: vec!["Luis".to_string()],
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    cliente.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    BufReader::new(&mut cliente)
+        .read_line(&mut respuesta)
+        .unwrap();
+
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::Response {
+            operation: Operation::Invite,
+            result: Resultado::NoSuchRoom,
+            extra: Some(roomname),
+        } if roomname == "No existe"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}

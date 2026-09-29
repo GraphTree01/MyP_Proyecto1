@@ -80,6 +80,14 @@ El cliente solicita una desconexión ordenada y los demás usuarios reciben `DIS
 
 El servidor responde únicamente al cliente que hizo la solicitud con la lista de usuarios conectados y sus estados.
 
+### Invitar usuarios a un cuarto
+
+```text
+\invite --room "Sala 1" --to Luis,Antonio,Fernando
+```
+
+Solo un miembro del cuarto puede invitar. La sala y todos los usuarios indicados deben existir. Las invitaciones repetidas y los usuarios que ya son miembros se ignoran.
+
 ### Crear un cuarto
 
 ```text
