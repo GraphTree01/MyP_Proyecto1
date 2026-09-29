@@ -66,7 +66,7 @@ pub enum Mensaje {
     #[serde(rename = "USER_LIST")]
     UserList { users: HashMap<String, Status> },
 
-    //Solicita la creación de un nuevo cuarto
+    ///Solicita la creación de un nuevo cuarto
     #[serde(rename = "NEW_ROOM")]
     NewRoom { roomname: String },
 
@@ -82,13 +82,24 @@ pub enum Mensaje {
     Invitation { username: String, roomname: String },
 
     /// Solicita al servidor unirse a un cuarto al que
-    // fue previamente fue invitado.
+    /// fue previamente invitado.
     #[serde(rename = "JOIN_ROOM")]
     JoinRoom { roomname: String },
 
     /// Notifica a los usuarios de una sala que un nuevo miembro se unió.
     #[serde(rename = "JOINED_ROOM")]
     JoinedRoom { roomname: String, username: String },
+
+    /// Solicita la lista de usuarios en un cuarto
+    #[serde(rename = "ROOM_USERS")]
+    RoomUsers { roomname: String },
+
+    /// Respuesta del servidor al cliente que pide la lista de usuarios.
+    #[serde(rename = "ROOM_USER_LIST")]
+    RoomUserList {
+        roomname: String,
+        users: HashMap<String, Status>,
+    },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -112,6 +123,9 @@ pub enum Operation {
     /// Resultado de una solicitud de unión a un cuarto.
     #[serde(rename = "JOIN_ROOM")]
     JoinRoom,
+    /// Resultado de una solicitud de unión a un cuarto que no existe.
+    #[serde(rename = "ROOM_USERS")]
+    RoomUsers,
 }
 
 /// Estado visible de un usuario conectado.
@@ -173,15 +187,19 @@ pub enum Resultado {
     /// El cliente destinatario no existe.
     #[serde(rename = "NO_SUCH_USER")]
     NoSuchUser,
-    ///El nombre de la sala esta duplicado
+    ///El nombre del cuarto esta duplicado
     #[serde(rename = "ROOM_ALREADY_EXISTS")]
     RoomAlreadyExists,
-    ///La sala a la que se hace referencia no existe
+    ///El cuarto al que se hace referencia no existe
     #[serde(rename = "NO_SUCH_ROOM")]
     NoSuchRoom,
     // El cliente no fue invitado al cuarto
     #[serde(rename = "NOT_INVITED")]
     NotInvited,
+    ///Un usuario no se ha unido al cuarto al que ha sido invitado
+    //  o simplemente no fue invitado
+    #[serde(rename = "NOT_JOINED")]
+    NotJoined,
 }
 
 #[cfg(test)]

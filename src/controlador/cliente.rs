@@ -104,6 +104,17 @@ impl Cliente {
             return Ok(true);
         }
 
+        if let Some(roomname) = comando.strip_prefix(r"\roomUsers ") {
+            if roomname.trim().is_empty() {
+                return Ok(false);
+            }
+
+            self.enviar(&Mensaje::RoomUsers {
+                roomname: roomname.trim_matches('"').trim().to_string(),
+            })?;
+            return Ok(true);
+        }
+
         if let Some(argumentos) = comando.strip_prefix(r"\invite ") {
             let Some(argumentos) = argumentos.strip_prefix("--room ") else {
                 return Ok(false);
@@ -215,6 +226,12 @@ impl Cliente {
                             println!("STATUS: \"{}\" -> {}", username, status);
                         }
                         Mensaje::UserList { users } => {
+                            for (username, status) in users {
+                                println!("{}: {}", username, status);
+                            }
+                        }
+                        Mensaje::RoomUserList { roomname, users } => {
+                            println!("Usuarios del cuarto \"{}\":", roomname);
                             for (username, status) in users {
                                 println!("{}: {}", username, status);
                             }

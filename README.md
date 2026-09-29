@@ -94,7 +94,15 @@ Solo un miembro del cuarto puede invitar. La sala y todos los usuarios indicados
 \joinRoom "Sala 1"
 ```
 
-El usuario debe tener una invitación pendiente. Al unirse, los miembros actuales reciben la notificación `JOINED_ROOM`.
+El usuario debe tener una invitación pendiente.
+
+### Consultar usuarios de un cuarto
+
+```text
+\roomUsers "Sala 1"
+```
+
+Solo los miembros que ya se unieron al cuarto pueden consultar sus usuarios y estados.
 
 ### Crear un cuarto
 

@@ -168,6 +168,51 @@ impl Manejador {
                     };
 
                     self.enviar(&Mensaje::UserList { users })?;
+                } else if let Mensaje::RoomUsers { roomname } = mensaje {
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                        .clone();
+
+                    let users = {
+                        let estado = self.estado.lock().map_err(|_| {
+                            Error::other("No se pudo acceder al estado del servidor")
+                        })?;
+
+                        let Some(cuarto) = estado.cuartos.get(&roomname) else {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::RoomUsers,
+                                result: Resultado::NoSuchRoom,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        };
+
+                        if !cuarto.miembros.contains(&username) {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::RoomUsers,
+                                result: Resultado::NotJoined,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        }
+
+                        cuarto
+                            .miembros
+                            .iter()
+                            .filter_map(|miembro| {
+                                estado
+                                    .usuarios
+                                    .get(miembro)
+                                    .map(|usuario| (miembro.clone(), usuario.status))
+                            })
+                            .collect()
+                    };
+
+                    self.enviar(&Mensaje::RoomUserList { roomname, users })?;
                 } else if let Mensaje::NewRoom { roomname } = mensaje {
                     let username = self
                         .nombre

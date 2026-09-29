@@ -51,6 +51,14 @@ fn enviar_mensaje(puerto: u16, mensaje: &Mensaje) -> Mensaje {
     traductor::deserializa(&respuesta).unwrap()
 }
 
+fn enviar_mensaje_desde_stream(stream: &mut TcpStream) -> Mensaje {
+    let mut respuesta = String::new();
+    BufReader::new(stream.try_clone().unwrap())
+        .read_line(&mut respuesta)
+        .unwrap();
+    traductor::deserializa(&respuesta).unwrap()
+}
+
 fn conectar_cliente_identificado(puerto: u16, nombre: &str) -> TcpStream {
     let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
     let mensaje = Mensaje::Identify {
@@ -591,6 +599,135 @@ fn rechaza_unirse_sin_invitacion() {
         Mensaje::Response {
             operation: Operation::JoinRoom,
             result: Resultado::NotInvited,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn devuelve_los_usuarios_de_un_cuarto() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut invitado = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut lectura_invitado = BufReader::new(invitado.try_clone().unwrap());
+    let mut linea = String::new();
+
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::Invite {
+        roomname: "Sala 1".to_string(),
+        usernames: vec!["Fernando".to_string()],
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_invitado.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::JoinRoom {
+        roomname: "Sala 1".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    invitado.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_invitado.read_line(&mut linea).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::RoomUsers {
+        roomname: "Sala 1".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    lectura_creador.read_line(&mut respuesta).unwrap();
+    let respuesta = traductor::deserializa(&respuesta).unwrap();
+
+    assert!(matches!(
+        respuesta,
+        Mensaje::RoomUserList { roomname, users }
+            if roomname == "Sala 1"
+                && users.get("Kimberly") == Some(&Status::Active)
+                && users.get("Fernando") == Some(&Status::Active)
+                && users.len() == 2
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_consulta_de_usuarios_de_cuarto_inexistente() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
+    let mensaje = Mensaje::RoomUsers {
+        roomname: "Sala 1".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    cliente.write_all(json.as_bytes()).unwrap();
+
+    let respuesta = enviar_mensaje_desde_stream(&mut cliente);
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::RoomUsers,
+            result: Resultado::NoSuchRoom,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_consulta_de_usuario_no_unido_al_cuarto() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut visitante = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut linea = String::new();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::RoomUsers {
+        roomname: "Sala 1".to_string(),
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    visitante.write_all(json.as_bytes()).unwrap();
+
+    let respuesta = enviar_mensaje_desde_stream(&mut visitante);
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::RoomUsers,
+            result: Resultado::NotJoined,
             extra: Some(roomname),
         } if roomname == "Sala 1"
     ));
