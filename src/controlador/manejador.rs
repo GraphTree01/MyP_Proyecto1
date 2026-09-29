@@ -213,6 +213,73 @@ impl Manejador {
                     };
 
                     self.enviar(&Mensaje::RoomUserList { roomname, users })?;
+                } else if let Mensaje::RoomText { roomname, text } = mensaje {
+                    if text.trim().is_empty() {
+                        continue;
+                    }
+
+                    let username = self
+                        .nombre
+                        .as_ref()
+                        .ok_or_else(|| Error::other("El cliente no está identificado"))?
+                        .clone();
+
+                    let destinatarios = {
+                        let estado = self.estado.lock().map_err(|_| {
+                            Error::other("No se pudo acceder al estado del servidor")
+                        })?;
+
+                        let Some(cuarto) = estado.cuartos.get(&roomname) else {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::RoomText,
+                                result: Resultado::NoSuchRoom,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        };
+
+                        if !cuarto.miembros.contains(&username) {
+                            drop(estado);
+                            self.enviar(&Mensaje::Response {
+                                operation: Operation::RoomText,
+                                result: Resultado::NotJoined,
+                                extra: Some(roomname),
+                            })?;
+                            continue;
+                        }
+
+                        cuarto
+                            .miembros
+                            .iter()
+                            .filter(|miembro| miembro.as_str() != username)
+                            .filter_map(|miembro| {
+                                estado.usuarios.get(miembro).and_then(|usuario| {
+                                    usuario
+                                        .stream
+                                        .try_clone()
+                                        .ok()
+                                        .map(|stream| (miembro.clone(), stream))
+                                })
+                            })
+                            .collect::<Vec<_>>()
+                    };
+
+                    let mensaje = Mensaje::RoomTextFrom {
+                        roomname,
+                        username,
+                        text,
+                    };
+                    let json = traductor::serializa(&mensaje)? + "\n";
+                    println!("{}", json.trim_end());
+                    for (destinatario, mut stream) in destinatarios {
+                        if let Err(error) = stream.write_all(json.as_bytes()) {
+                            eprintln!(
+                                "No se pudo enviar el mensaje del cuarto a {}: {}",
+                                destinatario, error
+                            );
+                        }
+                    }
                 } else if let Mensaje::NewRoom { roomname } = mensaje {
                     let username = self
                         .nombre

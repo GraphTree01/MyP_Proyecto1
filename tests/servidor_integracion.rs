@@ -735,3 +735,133 @@ fn rechaza_consulta_de_usuario_no_unido_al_cuarto() {
     servidor.kill().unwrap();
     servidor.wait().unwrap();
 }
+
+#[test]
+fn envia_texto_solo_a_los_miembros_del_cuarto() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut invitado = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut lectura_invitado = BufReader::new(invitado.try_clone().unwrap());
+    let mut linea = String::new();
+
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mensaje = Mensaje::Invite {
+        roomname: "Sala 1".to_string(),
+        usernames: vec!["Fernando".to_string()],
+    };
+    let mut json = traductor::serializa(&mensaje).unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_invitado.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::JoinRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    invitado.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_invitado.read_line(&mut linea).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::RoomText {
+        roomname: "Sala 1".to_string(),
+        text: "Hola sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+
+    let mut respuesta = String::new();
+    lectura_invitado.read_line(&mut respuesta).unwrap();
+    assert!(matches!(
+        traductor::deserializa(&respuesta).unwrap(),
+        Mensaje::RoomTextFrom {
+            roomname,
+            username,
+            text,
+        } if roomname == "Sala 1" && username == "Kimberly" && text == "Hola sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_texto_de_cuarto_no_existente() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut json = traductor::serializa(&Mensaje::RoomText {
+        roomname: "Sala 1".to_string(),
+        text: "Hola".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    cliente.write_all(json.as_bytes()).unwrap();
+
+    let respuesta = enviar_mensaje_desde_stream(&mut cliente);
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::RoomText,
+            result: Resultado::NoSuchRoom,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}
+
+#[test]
+fn rechaza_texto_de_usuario_no_unido() {
+    let (mut servidor, puerto) = iniciar_servidor();
+    let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
+    let mut visitante = conectar_cliente_identificado(puerto, "Fernando");
+    let mut lectura_creador = BufReader::new(creador.try_clone().unwrap());
+    let mut linea = String::new();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::NewRoom {
+        roomname: "Sala 1".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    creador.write_all(json.as_bytes()).unwrap();
+    linea.clear();
+    lectura_creador.read_line(&mut linea).unwrap();
+
+    let mut json = traductor::serializa(&Mensaje::RoomText {
+        roomname: "Sala 1".to_string(),
+        text: "Hola".to_string(),
+    })
+    .unwrap();
+    json.push('\n');
+    visitante.write_all(json.as_bytes()).unwrap();
+
+    let respuesta = enviar_mensaje_desde_stream(&mut visitante);
+    assert!(matches!(
+        respuesta,
+        Mensaje::Response {
+            operation: Operation::RoomText,
+            result: Resultado::NotJoined,
+            extra: Some(roomname),
+        } if roomname == "Sala 1"
+    ));
+
+    servidor.kill().unwrap();
+    servidor.wait().unwrap();
+}

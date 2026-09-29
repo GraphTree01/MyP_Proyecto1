@@ -115,6 +115,25 @@ impl Cliente {
             return Ok(true);
         }
 
+        if let Some(argumentos) = comando.strip_prefix(r"\roomText ") {
+            let Some(argumentos) = argumentos.strip_prefix("--room ") else {
+                return Ok(false);
+            };
+            let Some((roomname, text)) = argumentos.split_once(' ') else {
+                return Ok(false);
+            };
+            let roomname = roomname.trim_matches('"').trim();
+            if roomname.is_empty() || text.trim().is_empty() {
+                return Ok(false);
+            }
+
+            self.enviar(&Mensaje::RoomText {
+                roomname: roomname.to_string(),
+                text: text.trim().to_string(),
+            })?;
+            return Ok(true);
+        }
+
         if let Some(argumentos) = comando.strip_prefix(r"\invite ") {
             let Some(argumentos) = argumentos.strip_prefix("--room ") else {
                 return Ok(false);
@@ -235,6 +254,13 @@ impl Cliente {
                             for (username, status) in users {
                                 println!("{}: {}", username, status);
                             }
+                        }
+                        Mensaje::RoomTextFrom {
+                            roomname,
+                            username,
+                            text,
+                        } => {
+                            println!("[{}] {}: {}", roomname, username, text);
                         }
                         Mensaje::Invitation { username, roomname } => {
                             println!("{} te invitó al cuarto \"{}\".", username, roomname);

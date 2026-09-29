@@ -100,6 +100,18 @@ pub enum Mensaje {
         roomname: String,
         users: HashMap<String, Status>,
     },
+
+    /// Texto enviado por un cliente a un cuarto.
+    #[serde(rename = "ROOM_TEXT")]
+    RoomText { roomname: String, text: String },
+
+    /// Texto enviado por un cliente a un cuarto con remitente.
+    #[serde(rename = "ROOM_TEXT_FROM")]
+    RoomTextFrom {
+        roomname: String,
+        username: String,
+        text: String,
+    },
 }
 
 /// Operación a la que corresponde una respuesta del servidor.
@@ -126,6 +138,9 @@ pub enum Operation {
     /// Resultado de una solicitud de unión a un cuarto que no existe.
     #[serde(rename = "ROOM_USERS")]
     RoomUsers,
+    /// Resultado de una solicitud de unión a un cuarto que no existe.
+    #[serde(rename = "ROOM_TEXT")]
+    RoomText,
 }
 
 /// Estado visible de un usuario conectado.

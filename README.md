@@ -104,6 +104,14 @@ El usuario debe tener una invitación pendiente.
 
 Solo los miembros que ya se unieron al cuarto pueden consultar sus usuarios y estados.
 
+### Enviar texto a un cuarto
+
+```text
+\roomText --room "Sala 1" Hola sala 1
+```
+
+Solo los miembros que ya se unieron al cuarto reciben el mensaje. El emisor no recibe una copia.
+
 ### Crear un cuarto
 
 ```text
