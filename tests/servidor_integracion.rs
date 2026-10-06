@@ -103,6 +103,7 @@ fn conectar_cliente_identificado(puerto: u16, nombre: &str) -> TcpStream {
 }
 
 #[test]
+#[serial_test::serial]
 fn identifica_cliente_con_nombre_valido() {
     let (mut servidor, puerto) = iniciar_servidor();
 
@@ -131,6 +132,7 @@ fn identifica_cliente_con_nombre_valido() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_cliente_con_nombre_invalido() {
     let (mut servidor, puerto) = iniciar_servidor();
 
@@ -159,6 +161,7 @@ fn rechaza_cliente_con_nombre_invalido() {
 }
 
 #[test]
+#[serial_test::serial]
 fn respuesta_invalida_a_json_sin_tipo() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
@@ -173,6 +176,7 @@ fn respuesta_invalida_a_json_sin_tipo() {
 }
 
 #[test]
+#[serial_test::serial]
 fn respuesta_invalida_a_texto_sin_usuario() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
@@ -196,6 +200,7 @@ fn respuesta_invalida_a_texto_sin_usuario() {
 }
 
 #[test]
+#[serial_test::serial]
 fn respuesta_invalida_a_status_desconocido() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
@@ -219,6 +224,7 @@ fn respuesta_invalida_a_status_desconocido() {
 }
 
 #[test]
+#[serial_test::serial]
 fn respuesta_invalida_a_mensaje_mayor_a_un_megabyte() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut stream = TcpStream::connect(("127.0.0.1", puerto)).unwrap();
@@ -236,6 +242,7 @@ fn respuesta_invalida_a_mensaje_mayor_a_un_megabyte() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_nombre_ya_registrado() {
     let (mut servidor, puerto) = iniciar_servidor();
     let _primer_cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -260,6 +267,7 @@ fn rechaza_nombre_ya_registrado() {
 }
 
 #[test]
+#[serial_test::serial]
 fn difunde_texto_publico_a_los_demas_clientes() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
@@ -288,6 +296,7 @@ fn difunde_texto_publico_a_los_demas_clientes() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_mensaje_que_no_es_identify() {
     let (mut servidor, puerto) = iniciar_servidor();
 
@@ -313,6 +322,7 @@ fn rechaza_mensaje_que_no_es_identify() {
 }
 
 #[test]
+#[serial_test::serial]
 fn difunde_cambio_de_status_a_los_demas_clientes() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
@@ -350,6 +360,7 @@ fn difunde_cambio_de_status_a_los_demas_clientes() {
 }
 
 #[test]
+#[serial_test::serial]
 fn envia_texto_privado_solo_al_destinatario() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
@@ -384,6 +395,7 @@ fn envia_texto_privado_solo_al_destinatario() {
 }
 
 #[test]
+#[serial_test::serial]
 fn informa_si_no_existe_el_destinatario_privado() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
@@ -416,6 +428,7 @@ fn informa_si_no_existe_el_destinatario_privado() {
 }
 
 #[test]
+#[serial_test::serial]
 fn devuelve_la_lista_de_usuarios_con_sus_estados() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut emisor = conectar_cliente_identificado(puerto, "Emisor");
@@ -450,6 +463,7 @@ fn devuelve_la_lista_de_usuarios_con_sus_estados() {
 }
 
 #[test]
+#[serial_test::serial]
 fn crea_un_cuarto_y_agrega_al_creador() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -480,6 +494,7 @@ fn crea_un_cuarto_y_agrega_al_creador() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_un_cuarto_con_nombre_repetido() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut primer_cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -518,6 +533,7 @@ fn rechaza_un_cuarto_con_nombre_repetido() {
 }
 
 #[test]
+#[serial_test::serial]
 fn invita_a_multiples_usuarios_de_un_cuarto() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -571,6 +587,7 @@ fn invita_a_multiples_usuarios_de_un_cuarto() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_invitacion_a_sala_inexistente() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -601,6 +618,7 @@ fn rechaza_invitacion_a_sala_inexistente() {
 }
 
 #[test]
+#[serial_test::serial]
 fn permite_unirse_a_un_cuarto_con_invitacion() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -661,6 +679,7 @@ fn permite_unirse_a_un_cuarto_con_invitacion() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_unirse_sin_invitacion() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -704,6 +723,7 @@ fn rechaza_unirse_sin_invitacion() {
 }
 
 #[test]
+#[serial_test::serial]
 fn devuelve_los_usuarios_de_un_cuarto() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -769,6 +789,7 @@ fn devuelve_los_usuarios_de_un_cuarto() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_consulta_de_usuarios_de_cuarto_inexistente() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -794,6 +815,7 @@ fn rechaza_consulta_de_usuarios_de_cuarto_inexistente() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_consulta_de_usuario_no_unido_al_cuarto() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -833,6 +855,7 @@ fn rechaza_consulta_de_usuario_no_unido_al_cuarto() {
 }
 
 #[test]
+#[serial_test::serial]
 fn envia_texto_solo_a_los_miembros_del_cuarto() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -897,6 +920,7 @@ fn envia_texto_solo_a_los_miembros_del_cuarto() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_texto_de_cuarto_no_existente() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -923,6 +947,7 @@ fn rechaza_texto_de_cuarto_no_existente() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_texto_de_usuario_no_unido() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -963,6 +988,7 @@ fn rechaza_texto_de_usuario_no_unido() {
 }
 
 #[test]
+#[serial_test::serial]
 fn permite_salir_del_cuarto_y_notifica_a_los_demas_miembros() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -1023,6 +1049,7 @@ fn permite_salir_del_cuarto_y_notifica_a_los_demas_miembros() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_salir_de_un_cuarto_inexistente() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut cliente = conectar_cliente_identificado(puerto, "Kimberly");
@@ -1048,6 +1075,7 @@ fn rechaza_salir_de_un_cuarto_inexistente() {
 }
 
 #[test]
+#[serial_test::serial]
 fn rechaza_salir_de_un_cuarto_sin_pertenecer() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
@@ -1087,6 +1115,7 @@ fn rechaza_salir_de_un_cuarto_sin_pertenecer() {
 }
 
 #[test]
+#[serial_test::serial]
 fn desconectar_usuario_abandona_sus_cuartos_y_notifica() {
     let (mut servidor, puerto) = iniciar_servidor();
     let mut creador = conectar_cliente_identificado(puerto, "Kimberly");
