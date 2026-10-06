@@ -1,0 +1,57 @@
+This is BibTeX, Version 0.99d (TeX Live 2023/Debian)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: reporte.aux
+The style file: plain.bst
+Database file #1: referencias.bib
+Warning--entry type for "rustBook" isn't style-file defined
+--line 1 of file referencias.bib
+Warning--entry type for "serde" isn't style-file defined
+--line 9 of file referencias.bib
+Warning--entry type for "serdeJson" isn't style-file defined
+--line 17 of file referencias.bib
+Warning--entry type for "docker" isn't style-file defined
+--line 25 of file referencias.bib
+Warning--entry type for "rfc8259" isn't style-file defined
+--line 33 of file referencias.bib
+You've used 5 entries,
+            2118 wiz_defined-function locations,
+            516 strings with 4285 characters,
+and the built_in function-call counts, 1009 in all, are:
+= -- 85
+> -- 35
+< -- 0
++ -- 17
+- -- 10
+* -- 32
+:= -- 169
+add.period$ -- 10
+call.type$ -- 5
+change.case$ -- 20
+chr.to.int$ -- 0
+cite$ -- 5
+duplicate$ -- 35
+empty$ -- 111
+format.name$ -- 10
+if$ -- 216
+int.to.chr$ -- 0
+int.to.str$ -- 5
+missing$ -- 0
+newline$ -- 23
+num.names$ -- 10
+pop$ -- 45
+preamble$ -- 1
+purify$ -- 15
+quote$ -- 0
+skip$ -- 40
+stack$ -- 0
+substring$ -- 27
+swap$ -- 5
+text.length$ -- 0
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 20
+warning$ -- 0
+while$ -- 10
+width$ -- 6
+write$ -- 42
+(There were 5 warnings)

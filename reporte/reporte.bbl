@@ -1,0 +1,23 @@
+\begin{thebibliography}{1}
+
+\bibitem{rfc8259}
+Tim Bray.
+\newblock The javascript object notation (json) data interchange format, 2017.
+
+\bibitem{docker}
+{Docker Inc.}
+\newblock Docker documentation, 2026.
+
+\bibitem{serde}
+{Serde Developers}.
+\newblock Serde documentation, 2026.
+
+\bibitem{serdeJson}
+{Serde Developers}.
+\newblock serde\_json documentation, 2026.
+
+\bibitem{rustBook}
+{The Rust Project Developers}.
+\newblock The rust programming language, 2024.
+
+\end{thebibliography}
